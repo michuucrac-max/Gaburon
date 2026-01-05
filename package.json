@@ -1,0 +1,14 @@
+{
+  "name": "iru-guri-bot",
+  "version": "1.0.0",
+  "description": "Bot de seguridad para Made in Abyss",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.11.0",
+    "express": "^4.18.2"
+  }
+}
