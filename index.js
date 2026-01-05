@@ -140,7 +140,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!canal) return interaction.reply({ ephemeral: true, content: "❌ Canal no configurado." });
     const ch = await client.channels.fetch(canal).catch(() => null);
     if (!ch) return interaction.reply({ ephemeral: true, content: "❌ Canal inválido." });
-    await ch.send(`> 📢 **ANUNCIO DEL ABISMO**\n> ${interaction.options.getString("mensaje")}`);
+    await ch.send(`> 📢 **ANUNCIO**\n> ${interaction.options.getString("mensaje")}`);
     return interaction.reply({ ephemeral: true, content: "✅ Anuncio enviado." });
   }
 
@@ -185,7 +185,8 @@ client.on(Events.GuildMemberAdd, async member => {
   if (!canal) return;
   const ch = await member.guild.channels.fetch(canal).catch(() => null);
   if (!ch) return;
-  await ch.send(`> 👁️ ${member} ha descendido al Abismo. Que la suerte lo acompañe.`);
+  await ch.send(`> 👁️ ¡Atención! ${member} ha descendido al Abismo. Prepárense, su viaje apenas comienza…
+> 🧭 Que la fortuna lo acompañe en cada piso.`);
 });
 
 client.on(Events.GuildMemberRemove, async member => {
@@ -193,7 +194,7 @@ client.on(Events.GuildMemberRemove, async member => {
   if (!canal) return;
   const ch = await member.guild.channels.fetch(canal).catch(() => null);
   if (!ch) return;
-  await ch.send(`> 🕳️ ${member.user.tag} no regresó del Abismo.`);
+  await ch.send(`> 🌑 La oscuridad del Abismo se traga a ${member.user.tag}. Sus pasos ya no resonarán entre nosotros… que los ecos lo recuerden.`);
 });
 
 /* =====================
