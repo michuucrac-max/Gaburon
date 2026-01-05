@@ -1,0 +1,29 @@
+// punishments.json
+[
+  {
+    "id": "advertencia",
+    "nombre": "Advertencia del Vigilante",
+    "descripcion": "Una mirada silenciosa que advierte al explorador.",
+    "action": "none"
+  },
+  {
+    "id": "restriccion",
+    "nombre": "Restricción de Movimiento",
+    "descripcion": "El explorador es inmovilizado temporalmente.",
+    "action": "timeout",
+    "duration": 300000
+  },
+  {
+    "id": "humillacion",
+    "nombre": "Exposición a la Intemperie",
+    "descripcion": "Colgado a la vista de todos como advertencia.",
+    "action": "timeout",
+    "duration": 1800000
+  },
+  {
+    "id": "abismo",
+    "nombre": "Lanzado al Abismo",
+    "descripcion": "El explorador es arrojado sin retorno.",
+    "action": "ban"
+  }
+]
