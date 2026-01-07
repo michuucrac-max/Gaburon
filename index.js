@@ -43,7 +43,7 @@ const defaultConfig = {
 
 const config = fs.existsSync(CONFIG_PATH)
   ? JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"))
-  : defaultConfig;
+  : structuredClone(defaultConfig);
 
 const punishments = fs.existsSync(PUNISH_PATH)
   ? JSON.parse(fs.readFileSync(PUNISH_PATH, "utf8"))
@@ -57,9 +57,11 @@ EXPRESS
 ===================== */
 const app = express();
 app.get("/", (_, res) =>
-  res.send("Gaburon permanece activo. Ilblu está bajo vigilancia.")
+  res.send("Gaburon operativo. Ilblu permanece protegido.")
 );
-app.listen(PORT, () => console.log(`Gaburon operativo en puerto ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`Gaburon escuchando en puerto ${PORT}`)
+);
 
 /* =====================
 CLIENT
@@ -79,22 +81,31 @@ SLASH COMMANDS
 const commands = [
   new SlashCommandBuilder()
     .setName("anunce")
-    .setDescription("Transmitir un mensaje autorizado por Gaburon")
+    .setDescription("Transmitir mensaje oficial de Gaburon")
     .addStringOption(o =>
-      o.setName("mensaje").setDescription("Mensaje oficial").setRequired(true)
+      o.setName("mensaje")
+        .setDescription("Mensaje autorizado")
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("castigar")
     .setDescription("Ejecutar sentencia del Abismo")
     .addUserOption(o =>
-      o.setName("usuario").setDescription("Objetivo").setRequired(true)
+      o.setName("usuario")
+        .setDescription("Entidad objetivo")
+        .setRequired(true)
     )
     .addStringOption(o =>
       o.setName("castigo")
         .setDescription("Tipo de sentencia")
         .setRequired(true)
-        .addChoices(...punishments.map(p => ({ name: p.nombre, value: p.id })))
+        .addChoices(
+          ...punishments.map(p => ({
+            name: p.nombre,
+            value: p.id
+          }))
+        )
     ),
 
   new SlashCommandBuilder()
@@ -109,12 +120,12 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("setchannelaliance")
-    .setDescription("Asignar zona de pactos entre Abismos")
+    .setDescription("Asignar canal de alianzas")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
     .setName("setchannelboost")
-    .setDescription("Asignar altar de fortalecimiento")
+    .setDescription("Asignar canal de refuerzos")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   ...["anuncios", "castigos", "bienvenidas", "despedidas"].map(c =>
@@ -141,14 +152,14 @@ client.on(Events.InteractionCreate, async interaction => {
     saveConfig();
 
     return interaction.update({
-      content: "Ubicación registrada. Gaburon mantendrá este dato.",
+      content: "Registro confirmado. Gaburon almacenó la ubicación.",
       components: []
     });
   }
 
-  /* ===== SLASH COMMANDS ===== */
   if (!interaction.isChatInputCommand()) return;
 
+  /* ===== SET CHANNELS ===== */
   if (interaction.commandName.startsWith("setchannel")) {
     const id = interaction.commandName.replace("setchannel", "").toLowerCase();
 
@@ -165,6 +176,7 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
+  /* ===== CREATE USER COUNTER ===== */
   if (interaction.commandName === "createuser") {
     await interaction.deferReply({ ephemeral: true });
 
@@ -183,9 +195,10 @@ client.on(Events.InteractionCreate, async interaction => {
     config.counters.users = ch.id;
     saveConfig();
 
-    return interaction.editReply("Contador humano operativo. Registro estable.");
+    return interaction.editReply("Contador humano establecido.");
   }
 
+  /* ===== CREATE BOT COUNTER ===== */
   if (interaction.commandName === "createbot") {
     await interaction.deferReply({ ephemeral: true });
 
@@ -204,23 +217,44 @@ client.on(Events.InteractionCreate, async interaction => {
     config.counters.bots = ch.id;
     saveConfig();
 
-    return interaction.editReply("Contador mecánico operativo. Sistema funcional.");
+    return interaction.editReply("Contador mecánico establecido.");
   }
 
+  /* ===== ANNOUNCE ===== */
   if (interaction.commandName === "anunce") {
     const ch = await interaction.guild.channels
       .fetch(config.channels.anuncios)
       .catch(() => null);
 
     if (!ch)
-      return interaction.reply({ ephemeral: true, content: "Canal no configurado." });
+      return interaction.reply({
+        ephemeral: true,
+        content: "Canal de anuncios no configurado."
+      });
 
     await ch.send(
-      `**TRANSMISIÓN DE GABURON**\n` +
+      `**TRANSMISIÓN OFICIAL — GABURON**\n` +
       interaction.options.getString("mensaje")
     );
 
-    return interaction.reply({ ephemeral: true, content: "Transmisión completada." });
+    return interaction.reply({
+      ephemeral: true,
+      content: "Transmisión ejecutada."
+    });
+  }
+
+  /* ===== PUNISH ===== */
+  if (interaction.commandName === "castigar") {
+    const user = interaction.options.getUser("usuario");
+    const castigo = interaction.options.getString("castigo");
+
+    await interaction.reply({
+      content:
+        `**SENTENCIA EJECUTADA**\n` +
+        `Entidad: ${user}\n` +
+        `Código: ${castigo}\n` +
+        `Gaburon mantiene el orden.`
+    });
   }
 });
 
@@ -258,10 +292,10 @@ client.on(Events.GuildMemberAdd, async member => {
   if (!ch) return;
 
   ch.send(
-    `**ENTRADA DETECTADA**\n` +
+    `**ENTRADA REGISTRADA**\n` +
     `Entidad: ${member}\n` +
-    `Estado: monitoreado.\n` +
-    `Gaburon asegura el perímetro.`
+    `Estado: bajo vigilancia.\n` +
+    `Gaburon protege Ilblu.`
   );
 });
 
@@ -277,7 +311,7 @@ client.on(Events.GuildMemberRemove, async member => {
   ch.send(
     `**SALIDA REGISTRADA**\n` +
     `Entidad: ${member.user.tag}\n` +
-    `Registro archivado por Gaburon.`
+    `Archivo cerrado por Gaburon.`
   );
 });
 
@@ -293,7 +327,7 @@ client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
     if (!ch) return;
 
     ch.send(
-      `**REFUERZO CONFIRMADO**\n` +
+      `**REFUERZO DETECTADO**\n` +
       `Unidad: ${newM}\n` +
       `Ilblu ha sido fortalecido.`
     );
@@ -311,7 +345,7 @@ client.on(Events.MessageCreate, async msg => {
   if (!invite.test(msg.content)) return;
 
   msg.channel.send(
-    `**PACTO INTER-ABISMO DETECTADO**\n` +
+    `**PACTO INTER-ABISMO**\n` +
     `Origen: ${msg.author}\n` +
     `Estado: en evaluación.`
   );
@@ -321,7 +355,11 @@ client.on(Events.MessageCreate, async msg => {
 READY
 ===================== */
 client.once(Events.ClientReady, async () => {
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  await rest.put(
+    Routes.applicationCommands(CLIENT_ID),
+    { body: commands }
+  );
+
   console.log(`Gaburon en línea como ${client.user.tag}`);
   setInterval(updateCounters, 5 * 60 * 1000);
 });
