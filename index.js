@@ -38,6 +38,7 @@ const defaultConfig = {
     alianzas: null,
     boost: null,
     tikets: { channelId: null, messageId: null },
+    tops: null
   },
   counters: {
     users: null,
@@ -49,12 +50,9 @@ let config = fs.existsSync(CONFIG_PATH)
   ? JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"))
   : structuredClone(defaultConfig);
 
-// Merge seguro con defaultConfig
 config = { ...defaultConfig, ...config };
 config.channels = { ...defaultConfig.channels, ...(config.channels || {}) };
 if (!config.channels.tikets) config.channels.tikets = { channelId: null, messageId: null };
-if (!("channelId" in config.channels.tikets)) config.channels.tikets.channelId = null;
-if (!("messageId" in config.channels.tikets)) config.channels.tikets.messageId = null;
 
 const punishments = fs.existsSync(PUNISH_PATH)
   ? JSON.parse(fs.readFileSync(PUNISH_PATH, "utf8"))
@@ -63,11 +61,18 @@ const punishments = fs.existsSync(PUNISH_PATH)
 const saveConfig = () => fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 
 /* =====================
-EXPRESS
+EXPRESS (KEEP-ALIVE)
 ===================== */
 const app = express();
 app.get("/", (_, res) => res.send("Gaburon operativo. Ilblu permanece protegido."));
 app.listen(PORT, () => console.log(`🌐 Servidor activo en puerto ${PORT}`));
+
+app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
+setInterval(() => {
+  const http = require("http");
+  const url = `http://localhost:${PORT}/ping`;
+  http.get(url).on("error", () => {});
+}, 5 * 60 * 1000);
 
 /* =====================
 CLIENT
@@ -89,24 +94,23 @@ const commands = [
   new SlashCommandBuilder()
     .setName("anuncio")
     .setDescription("Emitir anuncio oficial")
-    .addStringOption((o) => o.setName("mensaje").setDescription("Mensaje").setRequired(true)),
+    .addStringOption(o => o.setName("mensaje").setDescription("Mensaje").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("alianza")
     .setDescription("Registrar alianza")
-    .addStringOption((o) => o.setName("servidor").setDescription("Servidor").setRequired(true))
-    .addStringOption((o) => o.setName("descripcion").setDescription("Descripción").setRequired(true)),
+    .addStringOption(o => o.setName("servidor").setDescription("Servidor").setRequired(true))
+    .addStringOption(o => o.setName("descripcion").setDescription("Descripción").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("castigar")
     .setDescription("Ejecutar sentencia del Abismo")
-    .addUserOption((o) => o.setName("usuario").setDescription("Entidad").setRequired(true))
-    .addStringOption((o) =>
-      o
-        .setName("castigo")
-        .setDescription("Tipo de castigo")
-        .setRequired(true)
-        .addChoices(...punishments.map((p) => ({ name: p.nombre, value: p.id })))
+    .addUserOption(o => o.setName("usuario").setDescription("Entidad").setRequired(true))
+    .addStringOption(o => o
+      .setName("castigo")
+      .setDescription("Tipo de castigo")
+      .setRequired(true)
+      .addChoices(...punishments.map(p => ({ name: p.nombre, value: p.id })))
     ),
 
   new SlashCommandBuilder()
@@ -122,16 +126,21 @@ const commands = [
   new SlashCommandBuilder()
     .setName("setchanneltikets")
     .setDescription("Configurar canal de tickets")
-    .addChannelOption((o) => o.setName("canal").setDescription("Canal de tickets").setRequired(true))
+    .addChannelOption(o => o.setName("canal").setDescription("Canal de tickets").setRequired(true))
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
-  ...["anuncios", "castigos", "bienvenidas", "despedidas", "alianzas", "boost"].map(
-    (c) =>
-      new SlashCommandBuilder()
-        .setName(`setchannel${c}`)
-        .setDescription(`Configurar canal ${c}`)
-        .addChannelOption((o) => o.setName("canal").setDescription("Seleccionar canal").setRequired(true))
-        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
+  new SlashCommandBuilder()
+    .setName("settoptop")
+    .setDescription("Configurar canal de tops")
+    .addChannelOption(o => o.setName("canal").setDescription("Canal de tops").setRequired(true))
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
+  ...["anuncios", "castigos", "bienvenidas", "despedidas", "alianzas", "boost"].map(c =>
+    new SlashCommandBuilder()
+      .setName(`setchannel${c}`)
+      .setDescription(`Configurar canal ${c}`)
+      .addChannelOption(o => o.setName("canal").setDescription("Seleccionar canal").setRequired(true))
+      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
   ),
 ];
 
@@ -144,9 +153,8 @@ client.once(Events.ClientReady, async () => {
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
   console.log(`🛡️ Gaburon en línea como ${client.user.tag}`);
   setInterval(updateCounters, 5 * 60 * 1000);
-
-  // Reconstruir mensaje de tickets al iniciar
   restoreTicketMessage();
+  startAutoTops();
 });
 
 /* =====================
@@ -155,45 +163,40 @@ INTERACTIONS
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
 
-  /* ===== SET CHANNELS ===== */
+  // SET CHANNELS
   if (interaction.isChatInputCommand() && interaction.commandName.startsWith("setchannel")) {
     const tipo = interaction.commandName.replace("setchannel", "");
     const canal = interaction.options.getChannel("canal");
-
-    if (!canal || canal.type !== ChannelType.GuildText)
-      return interaction.reply({ content: "Canal inválido.", ephemeral: true });
-
+    if (!canal || canal.type !== ChannelType.GuildText) return interaction.reply({ content: "Canal inválido.", ephemeral: true });
     if (tipo === "tikets") {
       config.channels.tikets.channelId = canal.id;
       config.channels.tikets.messageId = null;
       await sendTicketBanner(canal);
+    } else if (tipo === "toptop") {
+      config.channels.tops = canal.id;
     } else {
       config.channels[tipo] = canal.id;
     }
-
     saveConfig();
     return interaction.reply({ content: `Canal ${tipo} configurado.`, ephemeral: true });
   }
 
-  /* ===== ANUNCIO ===== */
+  // ANUNCIO
   if (interaction.isChatInputCommand() && interaction.commandName === "anuncio") {
     const ch = interaction.guild.channels.cache.get(config.channels.anuncios);
     if (!ch) return interaction.reply({ content: "Canal no configurado.", ephemeral: true });
-
     const embed = new EmbedBuilder()
       .setTitle("📢 COMUNICADO DEL SISTEMA")
       .setDescription(interaction.options.getString("mensaje"))
       .setFooter({ text: "Emitido por GABURON" });
-
     await ch.send({ embeds: [embed] });
     return interaction.reply({ content: "Anuncio enviado.", ephemeral: true });
   }
 
-  /* ===== ALIANZA ===== */
+  // ALIANZA
   if (interaction.isChatInputCommand() && interaction.commandName === "alianza") {
     const ch = interaction.guild.channels.cache.get(config.channels.alianzas);
     if (!ch) return interaction.reply({ content: "Canal no configurado.", ephemeral: true });
-
     const embed = new EmbedBuilder()
       .setTitle("🔗 NUEVA ALIANZA")
       .addFields(
@@ -201,41 +204,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { name: "Descripción", value: interaction.options.getString("descripcion") }
       )
       .setFooter({ text: "Gaburon supervisa el pacto" });
-
     await ch.send({ content: "@everyone", embeds: [embed] });
     return interaction.reply({ content: "Alianza registrada.", ephemeral: true });
   }
 
-  /* ===== CASTIGAR ===== */
+  // CASTIGAR
   if (interaction.isChatInputCommand() && interaction.commandName === "castigar") {
     await interaction.deferReply({ ephemeral: true });
-
     const user = interaction.options.getUser("usuario");
     const castigoId = interaction.options.getString("castigo");
-    const data = punishments.find((p) => p.id === castigoId);
+    const data = punishments.find(p => p.id === castigoId);
     if (!data) return interaction.editReply("Castigo inexistente.");
-
     const member = await interaction.guild.members.fetch(user.id);
-
     if (data.action === "timeout") await member.timeout(data.duration, "Sentencia de Gaburon");
     if (data.action === "ban") await member.ban({ reason: "Sentencia absoluta de Gaburon" });
-
     const ch = interaction.guild.channels.cache.get(config.channels.castigos);
-    if (ch)
-      await ch.send(
-        `⚠️ **SENTENCIA DEL ABISMO**\nEntidad: ${user}\nCastigo: **${data.nombre}**\nDescripción: ${data.descripcion}\nAutor: **GABURON**`
-      );
-
+    if (ch) await ch.send(`⚠️ **SENTENCIA DEL ABISMO**\nEntidad: ${user}\nCastigo: **${data.nombre}**\nDescripción: ${data.descripcion}\nAutor: **GABURON**`);
     return interaction.editReply(`Castigo aplicado: ${data.nombre}`);
   }
 
-  /* ===== CREATE HUMAN/BOT COUNTER ===== */
+  // CREATE HUMAN/BOT COUNTERS
   if (interaction.isChatInputCommand() && ["createhuman", "createbot"].includes(interaction.commandName)) {
     const members = await interaction.guild.members.fetch();
-    const humans = members.filter((m) => !m.user.bot).size;
-    const bots = members.filter((m) => m.user.bot).size;
-
     if (interaction.commandName === "createhuman") {
+      const humans = members.filter(m => !m.user.bot).size;
       const ch = await interaction.guild.channels.create({
         name: `👤 Exploradores: ${humans}`,
         type: ChannelType.GuildVoice,
@@ -245,8 +237,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       saveConfig();
       return interaction.reply({ content: "Contador humano creado.", ephemeral: true });
     }
-
     if (interaction.commandName === "createbot") {
+      const bots = members.filter(m => m.user.bot).size;
       const ch = await interaction.guild.channels.create({
         name: `🤖 Unidades: ${bots}`,
         type: ChannelType.GuildVoice,
@@ -258,7 +250,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  /* ===== BUTTON INTERACTIONS (Tickets) ===== */
+  // BUTTONS (Tickets)
   if (interaction.isButton()) {
     const [action, type, userId] = interaction.customId.split("_");
     if (!interaction.guild) return;
@@ -273,7 +265,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
           { id: member.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
         ],
       });
-
       const adminRoles = interaction.guild.roles.cache.filter(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
       for (const r of adminRoles.values()) await ch.permissionOverwrites.edit(r, { ViewChannel: true, SendMessages: true });
 
@@ -334,16 +325,10 @@ async function restoreTicketMessage() {
   if (!config.channels.tikets || !config.channels.tikets.channelId) return;
   const ch = await client.channels.fetch(config.channels.tikets.channelId).catch(() => null);
   if (!ch) return;
-
-  if (!config.channels.tikets.messageId) {
-    await sendTicketBanner(ch);
-  } else {
-    try {
-      const msg = await ch.messages.fetch(config.channels.tikets.messageId);
-      if (!msg) await sendTicketBanner(ch);
-    } catch {
-      await sendTicketBanner(ch);
-    }
+  if (!config.channels.tikets.messageId) await sendTicketBanner(ch);
+  else {
+    try { await ch.messages.fetch(config.channels.tikets.messageId); }
+    catch { await sendTicketBanner(ch); }
   }
 }
 
@@ -353,8 +338,8 @@ COUNTERS
 async function updateCounters() {
   for (const guild of client.guilds.cache.values()) {
     const members = await guild.members.fetch();
-    const humans = members.filter((m) => !m.user.bot).size;
-    const bots = members.filter((m) => m.user.bot).size;
+    const humans = members.filter(m => !m.user.bot).size;
+    const bots = members.filter(m => m.user.bot).size;
 
     if (config.counters.users) {
       const ch = guild.channels.cache.get(config.counters.users);
@@ -368,43 +353,47 @@ async function updateCounters() {
 }
 
 /* =====================
-WELCOME / LEAVE
+BOOST / WELCOME / LEAVE
 ===================== */
-client.on(Events.GuildMemberAdd, async (member) => {
-  const ch = member.guild.channels.cache.get(config.channels.bienvenidas);
-  if (!ch) return;
-  ch.send(`🛡️ **ENTRADA REGISTRADA**\nEntidad: ${member}\nSistema: GABURON`);
+client.on(Events.GuildMemberAdd, async m => {
+  const ch = m.guild.channels.cache.get(config.channels.bienvenidas);
+  if (ch) ch.send(`🛡️ **ENTRADA REGISTRADA**\nEntidad: ${m}\nSistema: GABURON`);
 });
 
-client.on(Events.GuildMemberRemove, async (member) => {
-  const ch = member.guild.channels.cache.get(config.channels.despedidas);
-  if (!ch) return;
-  ch.send(`📜 **SALIDA REGISTRADA**\nEntidad: ${member.user.tag}\nSistema: GABURON`);
+client.on(Events.GuildMemberRemove, async m => {
+  const ch = m.guild.channels.cache.get(config.channels.despedidas);
+  if (ch) ch.send(`📜 **SALIDA REGISTRADA**\nEntidad: ${m.user.tag}\nSistema: GABURON`);
 });
 
-/* =====================
-BOOST
-===================== */
 client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
   if (!oldM.premiumSince && newM.premiumSince && config.channels.boost) {
     const ch = await newM.guild.channels.fetch(config.channels.boost).catch(() => null);
-    if (!ch) return;
-    ch.send(`✨ **REFUERZO DETECTADO**\nUnidad: ${newM}\nIlblu ha sido fortalecido.`);
+    if (ch) ch.send(`✨ **REFUERZO DETECTADO**\nUnidad: ${newM}\nIlblu ha sido fortalecido.`);
   }
 });
 
 /* =====================
-KEEP ALIVE
+AUTOTOPS
 ===================== */
-app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
+function startAutoTops() {
+  setInterval(async () => {
+    if (!config.channels.tops) return;
+    const guild = client.guilds.cache.first();
+    if (!guild) return;
 
-setInterval(() => {
-  const http = require("http");
-  const url = `http://localhost:${PORT}/ping`;
-  http
-    .get(url, (res) => console.log(`🔁 Ping keep-alive, status: ${res.statusCode}`))
-    .on("error", (err) => console.log("❌ Error en keep-alive:", err.message));
-}, 5 * 60 * 1000);
+    const members = await guild.members.fetch();
+    const topUsers = members.filter(m => !m.user.bot).map(m => ({ tag: m.user.tag, id: m.id }));
+    // Puedes agregar tu sistema de puntaje real aquí si tienes status con dinero, xp, etc.
+
+    const embed = new EmbedBuilder()
+      .setTitle("🏆 TOP Exploradores")
+      .setDescription(topUsers.slice(0,10).map((u,i)=>`**${i+1}.** ${u.tag}`).join("\n"))
+      .setFooter({ text: "Gaburon supervisa los tops" });
+
+    const ch = guild.channels.cache.get(config.channels.tops);
+    if (ch) await ch.send({ embeds: [embed] });
+  }, 5 * 60 * 1000); // Intervalo: 10 minutos
+}
 
 /* =====================
 LOGIN
