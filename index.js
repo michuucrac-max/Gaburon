@@ -182,6 +182,50 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
+  /* ===== CREATE USER COUNTER ===== */
+  if (interaction.commandName === "createuser") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const members = await interaction.guild.members.fetch();
+    const humans = members.filter(m => !m.user.bot).size;
+
+    const ch = await interaction.guild.channels.create({
+      name: `Exploradores: ${humans}`,
+      type: ChannelType.GuildVoice,
+      permissionOverwrites: [{
+        id: interaction.guild.id,
+        deny: [PermissionsBitField.Flags.Connect]
+      }]
+    });
+
+    config.counters.users = ch.id;
+    saveConfig();
+
+    return interaction.editReply("Contador humano establecido.");
+  }
+
+  /* ===== CREATE BOT COUNTER ===== */
+  if (interaction.commandName === "createbot") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const members = await interaction.guild.members.fetch();
+    const bots = members.filter(m => m.user.bot).size;
+
+    const ch = await interaction.guild.channels.create({
+      name: `Unidades: ${bots}`,
+      type: ChannelType.GuildVoice,
+      permissionOverwrites: [{
+        id: interaction.guild.id,
+        deny: [PermissionsBitField.Flags.Connect]
+      }]
+    });
+
+    config.counters.bots = ch.id;
+    saveConfig();
+
+    return interaction.editReply("Contador mecánico establecido.");
+  }
+
   /* ===== CASTIGAR (FIX REAL) ===== */
   if (interaction.commandName === "castigar") {
     await interaction.deferReply();
@@ -189,17 +233,18 @@ client.on(Events.InteractionCreate, async interaction => {
     const user = interaction.options.getUser("usuario");
     const castigo = interaction.options.getString("castigo");
 
-    const ch = config.channels.castigos
-      ? await interaction.guild.channels.fetch(config.channels.castigos).catch(() => null)
-      : null;
-
     const msg =
       `**SENTENCIA DEL ABISMO**\n` +
       `Entidad: ${user}\n` +
       `Código: ${castigo}\n` +
       `Ejecución registrada por Gaburon.`;
 
-    if (ch) await ch.send(msg);
+    if (config.channels.castigos) {
+      const ch = await interaction.guild.channels
+        .fetch(config.channels.castigos)
+        .catch(() => null);
+      if (ch) await ch.send(msg);
+    }
 
     return interaction.editReply(msg);
   }
@@ -229,11 +274,109 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 /* =====================
+COUNTERS UPDATE
+===================== */
+async function updateCounters() {
+  for (const guild of client.guilds.cache.values()) {
+    const members = await guild.members.fetch();
+    const humans = members.filter(m => !m.user.bot).size;
+    const bots = members.filter(m => m.user.bot).size;
+
+    if (config.counters.users) {
+      const ch = guild.channels.cache.get(config.counters.users);
+      if (ch) await ch.setName(`Exploradores: ${humans}`);
+    }
+
+    if (config.counters.bots) {
+      const ch = guild.channels.cache.get(config.counters.bots);
+      if (ch) await ch.setName(`Unidades: ${bots}`);
+    }
+  }
+}
+
+/* =====================
+WELCOME / LEAVE
+===================== */
+client.on(Events.GuildMemberAdd, async member => {
+  if (!config.channels.bienvenidas) return;
+
+  const ch = await member.guild.channels
+    .fetch(config.channels.bienvenidas)
+    .catch(() => null);
+
+  if (!ch) return;
+
+  ch.send(
+    `**ENTRADA REGISTRADA**\n` +
+    `Entidad: ${member}\n` +
+    `Estado: bajo vigilancia.\n` +
+    `Gaburon protege Ilblu.`
+  );
+});
+
+client.on(Events.GuildMemberRemove, async member => {
+  if (!config.channels.despedidas) return;
+
+  const ch = await member.guild.channels
+    .fetch(config.channels.despedidas)
+    .catch(() => null);
+
+  if (!ch) return;
+
+  ch.send(
+    `**SALIDA REGISTRADA**\n` +
+    `Entidad: ${member.user.tag}\n` +
+    `Archivo cerrado por Gaburon.`
+  );
+});
+
+/* =====================
+BOOST
+===================== */
+client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
+  if (!oldM.premiumSince && newM.premiumSince && config.channels.boost) {
+    const ch = await newM.guild.channels
+      .fetch(config.channels.boost)
+      .catch(() => null);
+
+    if (!ch) return;
+
+    ch.send(
+      `**REFUERZO DETECTADO**\n` +
+      `Unidad: ${newM}\n` +
+      `Ilblu ha sido fortalecido.`
+    );
+  }
+});
+
+/* =====================
+ALLIANCES
+===================== */
+client.on(Events.MessageCreate, async msg => {
+  if (msg.author.bot) return;
+  if (msg.channel.id !== config.channels.alianzas) return;
+
+  const invite = /(discord\.gg\/|discord\.com\/invite\/)/i;
+  if (!invite.test(msg.content)) return;
+
+  msg.channel.send(
+    `**PACTO INTER-ABISMO**\n` +
+    `Origen: ${msg.author}\n` +
+    `Estado: en evaluación.`
+  );
+});
+
+/* =====================
 READY
 ===================== */
 client.once(Events.ClientReady, async () => {
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  await rest.put(
+    Routes.applicationCommands(CLIENT_ID),
+    { body: commands }
+  );
+
   console.log(`Gaburon en línea como ${client.user.tag}`);
+  setInterval(updateCounters, 5 * 60 * 1000);
 });
 
 /* =====================
