@@ -26,24 +26,29 @@ FILES
 const CONFIG_PATH = "./config.json";
 const PUNISH_PATH = "./punishments.json";
 
+const defaultConfig = {
+  channels: {
+    anuncios: null,
+    castigos: null,
+    bienvenidas: null,
+    despedidas: null,
+    alianzas: null,
+    boost: null
+  },
+  counters: {
+    users: null,
+    bots: null
+  }
+};
+
 const config = fs.existsSync(CONFIG_PATH)
   ? JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"))
-  : {
-      channels: {
-        anuncios: null,
-        castigos: null,
-        bienvenidas: null,
-        despedidas: null,
-        alianzas: null,
-        boost: null
-      },
-      counters: {
-        users: null,
-        bots: null
-      }
-    };
+  : defaultConfig;
 
-const punishments = JSON.parse(fs.readFileSync(PUNISH_PATH, "utf8"));
+const punishments = fs.existsSync(PUNISH_PATH)
+  ? JSON.parse(fs.readFileSync(PUNISH_PATH, "utf8"))
+  : [];
+
 const saveConfig = () =>
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 
@@ -52,9 +57,9 @@ EXPRESS
 ===================== */
 const app = express();
 app.get("/", (_, res) =>
-  res.send(" Gaburon permanece inmóvil, vigilando Ilblu y a la Princesa Faputa")
+  res.send("Gaburon permanece inmóvil. Ilblu está bajo protección.")
 );
-app.listen(PORT, () => console.log(`🌐 Gaburon activo en ${PORT}`));
+app.listen(PORT, () => console.log(`Gaburon operativo en puerto ${PORT}`));
 
 /* =====================
 CLIENT
@@ -74,46 +79,48 @@ SLASH COMMANDS
 const commands = [
   new SlashCommandBuilder()
     .setName("anunce")
-    .setDescription("Proclamar un mensaje de Gaburon")
+    .setDescription("Transmitir un mensaje autorizado por Gaburon")
     .addStringOption(o =>
-      o.setName("mensaje").setDescription("Mensaje del guardián").setRequired(true)
+      o.setName("mensaje").setDescription("Mensaje oficial").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("castigar")
-    .setDescription("Aplicar juicio del Abismo")
-    .addUserOption(o => o.setName("usuario").setDescription("Objetivo").setRequired(true))
+    .setDescription("Ejecutar sentencia del Abismo")
+    .addUserOption(o =>
+      o.setName("usuario").setDescription("Objetivo").setRequired(true)
+    )
     .addStringOption(o =>
       o.setName("castigo")
-        .setDescription("Sentencia")
+        .setDescription("Tipo de sentencia")
         .setRequired(true)
         .addChoices(...punishments.map(p => ({ name: p.nombre, value: p.id })))
     ),
 
   new SlashCommandBuilder()
     .setName("createuser")
-    .setDescription("Erigir tótem de conteo de humanos")
+    .setDescription("Crear contador de exploradores humanos")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
     .setName("createbot")
-    .setDescription("Erigir tótem de conteo de autómatas")
+    .setDescription("Crear contador de unidades mecánicas")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
     .setName("setchannelaliance")
-    .setDescription("Designar zona de pactos entre Abismos")
+    .setDescription("Asignar zona de pactos entre Abismos")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
     .setName("setchannelboost")
-    .setDescription("Designar altar de ofrendas (boosts)")
+    .setDescription("Asignar altar de fortalecimiento")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   ...["anunces", "castigos", "bienvenidas", "despedidas"].map(c =>
     new SlashCommandBuilder()
       .setName(`setchannel${c}`)
-      .setDescription(`Designar canal de ${c}`)
+      .setDescription(`Asignar canal de ${c}`)
       .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
   )
 ];
@@ -124,14 +131,30 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 INTERACTIONS
 ===================== */
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand() && !interaction.isChannelSelectMenu()) return;
 
-  if (interaction.isChatInputCommand() && interaction.commandName.startsWith("setchannel")) {
+  /* ===== CHANNEL SELECT ===== */
+  if (interaction.isChannelSelectMenu()) {
+    if (!interaction.customId.startsWith("set_")) return;
+
+    const id = interaction.customId.replace("set_", "");
+    config.channels[id] = interaction.values[0];
+    saveConfig();
+
+    return interaction.update({
+      content: "Ubicación registrada. Gaburon no olvidará.",
+      components: []
+    });
+  }
+
+  /* ===== SLASH COMMANDS ===== */
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName.startsWith("setchannel")) {
     const id = interaction.commandName.replace("setchannel", "").toLowerCase();
 
     const menu = new ChannelSelectMenuBuilder()
       .setCustomId(`set_${id}`)
-      .setPlaceholder("Gaburon espera una designación")
+      .setPlaceholder("Seleccionar canal")
       .addChannelTypes(ChannelType.GuildText)
       .setMinValues(1)
       .setMaxValues(1);
@@ -142,127 +165,150 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
-  if (interaction.isChannelSelectMenu() && interaction.customId.startsWith("set_")) {
-    const id = interaction.customId.replace("set_", "");
-    config.channels[id] = interaction.values[0];
-    saveConfig();
-    return interaction.update({ content: "🦴 Gaburon ha memorizado el lugar.", components: [] });
-  }
-
   if (interaction.commandName === "createuser") {
+    const members = await interaction.guild.members.fetch();
+    const humans = members.filter(m => !m.user.bot).size;
+
     const ch = await interaction.guild.channels.create({
-      name: `👁️ Humanos: ${interaction.guild.memberCount}`,
+      name: `Exploradores: ${humans}`,
       type: ChannelType.GuildVoice,
       permissionOverwrites: [{
         id: interaction.guild.id,
         deny: [PermissionsBitField.Flags.Connect]
       }]
     });
+
     config.counters.users = ch.id;
     saveConfig();
-    return interaction.reply({ ephemeral: true, content: "🦴 Tótem humano erigido." });
+
+    return interaction.reply({ ephemeral: true, content: "Contador humano operativo." });
   }
 
   if (interaction.commandName === "createbot") {
-    const bots = interaction.guild.members.cache.filter(m => m.user.bot).size;
+    const members = await interaction.guild.members.fetch();
+    const bots = members.filter(m => m.user.bot).size;
+
     const ch = await interaction.guild.channels.create({
-      name: `⚙️ Autómatas: ${bots}`,
+      name: `Unidades: ${bots}`,
       type: ChannelType.GuildVoice,
       permissionOverwrites: [{
         id: interaction.guild.id,
         deny: [PermissionsBitField.Flags.Connect]
       }]
     });
+
     config.counters.bots = ch.id;
     saveConfig();
-    return interaction.reply({ ephemeral: true, content: "🦴 Tótem mecánico erigido." });
+
+    return interaction.reply({ ephemeral: true, content: "Contador mecánico operativo." });
+  }
+
+  if (interaction.commandName === "anunce") {
+    const ch = await interaction.guild.channels.fetch(config.channels.anuncios).catch(() => null);
+    if (!ch) return interaction.reply({ ephemeral: true, content: "Canal no configurado." });
+
+    await ch.send(
+      `**TRANSMISIÓN DE GABURON**\n` +
+      interaction.options.getString("mensaje")
+    );
+
+    return interaction.reply({ ephemeral: true, content: "Transmisión enviada." });
   }
 });
 
 /* =====================
-COUNTERS
+COUNTERS UPDATE
 ===================== */
 async function updateCounters() {
   for (const guild of client.guilds.cache.values()) {
     const members = await guild.members.fetch();
+    const humans = members.filter(m => !m.user.bot).size;
     const bots = members.filter(m => m.user.bot).size;
 
     if (config.counters.users) {
       const ch = guild.channels.cache.get(config.counters.users);
-      if (ch) ch.setName(`👁️ Humanos: ${members.size}`);
+      if (ch) await ch.setName(`Exploradores: ${humans}`);
     }
 
     if (config.counters.bots) {
       const ch = guild.channels.cache.get(config.counters.bots);
-      if (ch) ch.setName(`⚙️ Autómatas: ${bots}`);
+      if (ch) await ch.setName(`Unidades: ${bots}`);
     }
   }
 }
 
 /* =====================
-BOOST – GABURON
+WELCOME / LEAVE
+===================== */
+client.on(Events.GuildMemberAdd, async member => {
+  if (!config.channels.bienvenidas) return;
+
+  const ch = await member.guild.channels
+    .fetch(config.channels.bienvenidas)
+    .catch(() => null);
+
+  if (!ch) return;
+
+  ch.send(
+    `**ENTRADA DETECTADA**\n` +
+    `Entidad: ${member}\n` +
+    `Estado: bajo observación.\n` +
+    `Gaburon mantiene el perímetro activo.`
+  );
+});
+
+client.on(Events.GuildMemberRemove, async member => {
+  if (!config.channels.despedidas) return;
+
+  const ch = await member.guild.channels
+    .fetch(config.channels.despedidas)
+    .catch(() => null);
+
+  if (!ch) return;
+
+  ch.send(
+    `**SALIDA REGISTRADA**\n` +
+    `Entidad: ${member.user.tag}\n` +
+    `Destino: desconocido.\n` +
+    `Registro archivado por Gaburon.`
+  );
+});
+
+/* =====================
+BOOST
 ===================== */
 client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
-  if (!oldM.premiumSince && newM.premiumSince) {
-    if (!config.channels.boost) return;
-    const ch = await newM.guild.channels.fetch(config.channels.boost).catch(() => null);
+  if (!oldM.premiumSince && newM.premiumSince && config.channels.boost) {
+    const ch = await newM.guild.channels
+      .fetch(config.channels.boost)
+      .catch(() => null);
+
     if (!ch) return;
 
     ch.send(
-      `>  **GABURON DESPIERTA**\n` +
-      `> La ofrenda ha sido aceptada.\n` +
-      `> ${newM} ha fortalecido Ilblu y a su Princesa.\n` +
-      `> Mientras Gaburon permanezca en pie, Faputa estará a salvo.\n` +
-      `>  El Abismo recuerda este acto.`
+      `**REFUERZO ESTRUCTURAL CONFIRMADO**\n` +
+      `Unidad: ${newM}\n` +
+      `Ilblu ha sido fortalecido.\n` +
+      `Gaburon continúa la defensa.`
     );
   }
 });
 
 /* =====================
-ALLIANCE DETECTION
+ALLIANCES
 ===================== */
 client.on(Events.MessageCreate, async msg => {
   if (msg.author.bot) return;
   if (msg.channel.id !== config.channels.alianzas) return;
 
-  const inviteRegex = /(discord\.gg\/|discord\.com\/invite\/)/i;
-  if (!inviteRegex.test(msg.content)) return;
+  const invite = /(discord\.gg\/|discord\.com\/invite\/)/i;
+  if (!invite.test(msg.content)) return;
 
   msg.channel.send(
-    `> 🤝 **PACTO DETECTADO**\n` +
-    `> Gaburon ha identificado un portal hacia otro Abismo.\n` +
-    `> Explorador: ${msg.author}\n` +
-    `> Ilblu observa.`
+    `**PACTO INTER-ABISMO DETECTADO**\n` +
+    `Origen: ${msg.author}\n` +
+    `Estado: en evaluación por Gaburon.`
   );
-});
-
-/* =====================
-WELCOME / LEAVE
-===================== */
-client.on(Events.GuildMemberAdd, async member => {
-  const ch = config.channels.bienvenidas
-    ? await member.guild.channels.fetch(config.channels.bienvenidas).catch(() => null)
-    : null;
-
-  if (ch)
-    ch.send(
-      `> 👁️ Gaburon gira su mirada.\n` +
-      `> ${member} ha entrado en territorio protegido.\n` +
-      `> Faputa decide su valor.`
-    );
-});
-
-client.on(Events.GuildMemberRemove, async member => {
-  const ch = config.channels.despedidas
-    ? await member.guild.channels.fetch(config.channels.despedidas).catch(() => null)
-    : null;
-
-  if (ch)
-    ch.send(
-      `> 🌑 Gaburon no interfiere.\n` +
-      `> ${member.user.tag} se ha perdido en el Abismo.\n` +
-      `> El eco se apaga.`
-    );
 });
 
 /* =====================
@@ -270,7 +316,7 @@ READY
 ===================== */
 client.once(Events.ClientReady, async () => {
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-  console.log(` Gaburon despierto como ${client.user.tag}`);
+  console.log(`Gaburon en línea como ${client.user.tag}`);
   setInterval(updateCounters, 5 * 60 * 1000);
 });
 
