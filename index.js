@@ -57,7 +57,7 @@ EXPRESS
 ===================== */
 const app = express();
 app.get("/", (_, res) =>
-  res.send("Gaburon permanece inmóvil. Ilblu está bajo protección.")
+  res.send("Gaburon permanece activo. Ilblu está bajo vigilancia.")
 );
 app.listen(PORT, () => console.log(`Gaburon operativo en puerto ${PORT}`));
 
@@ -117,7 +117,7 @@ const commands = [
     .setDescription("Asignar altar de fortalecimiento")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
-  ...["anunces", "castigos", "bienvenidas", "despedidas"].map(c =>
+  ...["anuncios", "castigos", "bienvenidas", "despedidas"].map(c =>
     new SlashCommandBuilder()
       .setName(`setchannel${c}`)
       .setDescription(`Asignar canal de ${c}`)
@@ -141,7 +141,7 @@ client.on(Events.InteractionCreate, async interaction => {
     saveConfig();
 
     return interaction.update({
-      content: "Ubicación registrada. Gaburon no olvidará.",
+      content: "Ubicación registrada. Gaburon mantendrá este dato.",
       components: []
     });
   }
@@ -166,6 +166,8 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   if (interaction.commandName === "createuser") {
+    await interaction.deferReply({ ephemeral: true });
+
     const members = await interaction.guild.members.fetch();
     const humans = members.filter(m => !m.user.bot).size;
 
@@ -181,10 +183,12 @@ client.on(Events.InteractionCreate, async interaction => {
     config.counters.users = ch.id;
     saveConfig();
 
-    return interaction.reply({ ephemeral: true, content: "Contador humano operativo." });
+    return interaction.editReply("Contador humano operativo. Registro estable.");
   }
 
   if (interaction.commandName === "createbot") {
+    await interaction.deferReply({ ephemeral: true });
+
     const members = await interaction.guild.members.fetch();
     const bots = members.filter(m => m.user.bot).size;
 
@@ -200,19 +204,23 @@ client.on(Events.InteractionCreate, async interaction => {
     config.counters.bots = ch.id;
     saveConfig();
 
-    return interaction.reply({ ephemeral: true, content: "Contador mecánico operativo." });
+    return interaction.editReply("Contador mecánico operativo. Sistema funcional.");
   }
 
   if (interaction.commandName === "anunce") {
-    const ch = await interaction.guild.channels.fetch(config.channels.anuncios).catch(() => null);
-    if (!ch) return interaction.reply({ ephemeral: true, content: "Canal no configurado." });
+    const ch = await interaction.guild.channels
+      .fetch(config.channels.anuncios)
+      .catch(() => null);
+
+    if (!ch)
+      return interaction.reply({ ephemeral: true, content: "Canal no configurado." });
 
     await ch.send(
       `**TRANSMISIÓN DE GABURON**\n` +
       interaction.options.getString("mensaje")
     );
 
-    return interaction.reply({ ephemeral: true, content: "Transmisión enviada." });
+    return interaction.reply({ ephemeral: true, content: "Transmisión completada." });
   }
 });
 
@@ -252,8 +260,8 @@ client.on(Events.GuildMemberAdd, async member => {
   ch.send(
     `**ENTRADA DETECTADA**\n` +
     `Entidad: ${member}\n` +
-    `Estado: bajo observación.\n` +
-    `Gaburon mantiene el perímetro activo.`
+    `Estado: monitoreado.\n` +
+    `Gaburon asegura el perímetro.`
   );
 });
 
@@ -269,7 +277,6 @@ client.on(Events.GuildMemberRemove, async member => {
   ch.send(
     `**SALIDA REGISTRADA**\n` +
     `Entidad: ${member.user.tag}\n` +
-    `Destino: desconocido.\n` +
     `Registro archivado por Gaburon.`
   );
 });
@@ -286,10 +293,9 @@ client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
     if (!ch) return;
 
     ch.send(
-      `**REFUERZO ESTRUCTURAL CONFIRMADO**\n` +
+      `**REFUERZO CONFIRMADO**\n` +
       `Unidad: ${newM}\n` +
-      `Ilblu ha sido fortalecido.\n` +
-      `Gaburon continúa la defensa.`
+      `Ilblu ha sido fortalecido.`
     );
   }
 });
@@ -307,7 +313,7 @@ client.on(Events.MessageCreate, async msg => {
   msg.channel.send(
     `**PACTO INTER-ABISMO DETECTADO**\n` +
     `Origen: ${msg.author}\n` +
-    `Estado: en evaluación por Gaburon.`
+    `Estado: en evaluación.`
   );
 });
 
