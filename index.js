@@ -9,7 +9,8 @@ import {
   REST,
   Routes,
   ActionRowBuilder,
-  ChannelSelectMenuBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   EmbedBuilder
 } from "discord.js";
 import fs from "fs";
@@ -23,10 +24,11 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const PORT = process.env.PORT || 3000;
 
 /* =====================
-FILES
+FILES / CONFIG
 ===================== */
 const CONFIG_PATH = "./config.json";
 const PUNISH_PATH = "./punishments.json";
+const TICKETS_PATH = "./tickets.json";
 
 const defaultConfig = {
   channels: {
@@ -35,7 +37,8 @@ const defaultConfig = {
     bienvenidas: null,
     despedidas: null,
     alianzas: null,
-    boost: null
+    boost: null,
+    tikets: null
   },
   counters: {
     users: null,
@@ -51,8 +54,14 @@ const punishments = fs.existsSync(PUNISH_PATH)
   ? JSON.parse(fs.readFileSync(PUNISH_PATH, "utf8"))
   : [];
 
+const tickets = fs.existsSync(TICKETS_PATH)
+  ? JSON.parse(fs.readFileSync(TICKETS_PATH, "utf8"))
+  : {};
+
 const saveConfig = () =>
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+const saveTickets = () =>
+  fs.writeFileSync(TICKETS_PATH, JSON.stringify(tickets, null, 2));
 
 /* =====================
 EXPRESS
@@ -122,6 +131,14 @@ const commands = [
     .setDescription("Crear contador de bots")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
+  new SlashCommandBuilder()
+    .setName("setchanneltikets")
+    .setDescription("Configurar canal para tickets")
+    .addChannelOption(o =>
+      o.setName("canal").setDescription("Seleccionar canal").setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+
   ...["anuncios","castigos","bienvenidas","despedidas","alianzas","boost"].map(c =>
     new SlashCommandBuilder()
       .setName(`setchannel${c}`)
@@ -144,16 +161,39 @@ client.once(Events.ClientReady, async () => {
 
   console.log(`🛡️ Gaburon en línea como ${client.user.tag}`);
   setInterval(updateCounters, 5 * 60 * 1000);
+
+  // Restaurar tickets activos al iniciar
+  for (const tId in tickets) {
+    const tData = tickets[tId];
+    const guild = client.guilds.cache.get(tData.guild);
+    if (!guild) continue;
+    const channel = await guild.channels.fetch(tData.channel).catch(() => null);
+    if (!channel) continue;
+
+    // Re-crear botones en el canal del ticket
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`accept_${tId}`)
+        .setLabel("Aceptar ticket")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`close_${tId}`)
+        .setLabel("Cerrar ticket")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    channel.send({ content: "Gaburon recuerda: espera a que un admin acepte tu ticket pacientemente", components: [row] });
+  }
 });
 
 /* =====================
 INTERACTIONS
 ===================== */
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
 
   /* ===== SET CHANNELS ===== */
-  if (interaction.commandName.startsWith("setchannel")) {
+  if (interaction.isChatInputCommand() && interaction.commandName.startsWith("setchannel")) {
     const tipo = interaction.commandName.replace("setchannel", "");
     const canal = interaction.options.getChannel("canal");
 
@@ -167,8 +207,33 @@ client.on(Events.InteractionCreate, async interaction => {
     return interaction.reply({ content: `Canal ${tipo} configurado.`, ephemeral: true });
   }
 
+  /* ===== TICKETS - SET CHANNEL ===== */
+  if (interaction.isChatInputCommand() && interaction.commandName === "setchanneltikets") {
+    const canal = interaction.options.getChannel("canal");
+    if (!canal || canal.type !== ChannelType.GuildText)
+      return interaction.reply({ content: "Canal inválido.", ephemeral: true });
+
+    config.channels.tikets = canal.id;
+    saveConfig();
+
+    // Mensaje con botones
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("open_ticket")
+        .setLabel("Abrir ticket")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("open_ticket_ally")
+        .setLabel("Abrir ticket ally")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await canal.send({ content: "📜 Selecciona el tipo de ticket:", components: [row] });
+    return interaction.reply({ content: "Canal de tickets configurado.", ephemeral: true });
+  }
+
   /* ===== ANUNCIO ===== */
-  if (interaction.commandName === "anuncio") {
+  if (interaction.isChatInputCommand() && interaction.commandName === "anuncio") {
     const ch = interaction.guild.channels.cache.get(config.channels.anuncios);
     if (!ch) return interaction.reply({ content: "Canal no configurado.", ephemeral: true });
 
@@ -182,7 +247,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   /* ===== ALIANZA ===== */
-  if (interaction.commandName === "alianza") {
+  if (interaction.isChatInputCommand() && interaction.commandName === "alianza") {
     const ch = interaction.guild.channels.cache.get(config.channels.alianzas);
     if (!ch) return interaction.reply({ content: "Canal no configurado.", ephemeral: true });
 
@@ -199,7 +264,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   /* ===== CASTIGAR ===== */
-  if (interaction.commandName === "castigar") {
+  if (interaction.isChatInputCommand() && interaction.commandName === "castigar") {
     await interaction.deferReply({ ephemeral: true });
 
     const user = interaction.options.getUser("usuario");
@@ -209,12 +274,8 @@ client.on(Events.InteractionCreate, async interaction => {
 
     const member = await interaction.guild.members.fetch(user.id);
 
-    if (data.action === "timeout") {
-      await member.timeout(data.duration, "Sentencia de Gaburon");
-    }
-    if (data.action === "ban") {
-      await member.ban({ reason: "Sentencia absoluta de Gaburon" });
-    }
+    if (data.action === "timeout") await member.timeout(data.duration, "Sentencia de Gaburon");
+    if (data.action === "ban") await member.ban({ reason: "Sentencia absoluta de Gaburon" });
 
     const ch = interaction.guild.channels.cache.get(config.channels.castigos);
     if (ch) {
@@ -227,7 +288,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   /* ===== CREATE HUMAN COUNTER ===== */
-  if (interaction.commandName === "createhuman") {
+  if (interaction.isChatInputCommand() && interaction.commandName === "createhuman") {
     const members = await interaction.guild.members.fetch();
     const humans = members.filter(m => !m.user.bot).size;
 
@@ -243,7 +304,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   /* ===== CREATE BOT COUNTER ===== */
-  if (interaction.commandName === "createbot") {
+  if (interaction.isChatInputCommand() && interaction.commandName === "createbot") {
     const members = await interaction.guild.members.fetch();
     const bots = members.filter(m => m.user.bot).size;
 
@@ -256,6 +317,83 @@ client.on(Events.InteractionCreate, async interaction => {
     config.counters.bots = ch.id;
     saveConfig();
     return interaction.reply({ content: "Contador bot creado.", ephemeral: true });
+  }
+
+  /* ===== BUTTONS TICKETS ===== */
+  if (interaction.isButton()) {
+    const guild = interaction.guild;
+
+    // Abrir ticket
+    if (interaction.customId === "open_ticket" || interaction.customId === "open_ticket_ally") {
+      const type = interaction.customId === "open_ticket_ally" ? "Alianza" : "General";
+
+      const ticketChannel = await guild.channels.create({
+        name: `ticket-${interaction.user.username}`,
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+          // Todos los administradores
+          ...guild.roles.cache.filter(r => r.permissions.has(PermissionsBitField.Flags.Administrator)).map(r => ({
+            id: r.id,
+            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels]
+          }))
+        ]
+      });
+
+      const ticketId = ticketChannel.id;
+      tickets[ticketId] = {
+        channel: ticketChannel.id,
+        user: interaction.user.id,
+        type,
+        guild: guild.id,
+        accepted: false
+      };
+      saveTickets();
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`accept_${ticketId}`)
+          .setLabel("Aceptar ticket")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`close_${ticketId}`)
+          .setLabel("Cerrar ticket")
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await ticketChannel.send({ content: `📌 Ticket creado por ${interaction.user}. Tipo: ${type}\nEspera a que un admin acepte tu ticket pacientemente.`, components: [row] });
+      return interaction.reply({ content: `Ticket ${type} creado: ${ticketChannel}`, ephemeral: true });
+    }
+
+    // Aceptar ticket
+    if (interaction.customId.startsWith("accept_")) {
+      const tId = interaction.customId.replace("accept_", "");
+      const tData = tickets[tId];
+      if (!tData) return interaction.reply({ content: "Ticket no encontrado.", ephemeral: true });
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))
+        return interaction.reply({ content: "Solo admins pueden aceptar.", ephemeral: true });
+
+      tData.accepted = true;
+      saveTickets();
+      return interaction.reply({ content: "Ticket aceptado ✅", ephemeral: true });
+    }
+
+    // Cerrar ticket
+    if (interaction.customId.startsWith("close_")) {
+      const tId = interaction.customId.replace("close_", "");
+      const tData = tickets[tId];
+      if (!tData) return interaction.reply({ content: "Ticket no encontrado.", ephemeral: true });
+
+      if (interaction.user.id !== tData.user && !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))
+        return interaction.reply({ content: "Solo el creador o admins pueden cerrar.", ephemeral: true });
+
+      const ch = await guild.channels.fetch(tData.channel).catch(() => null);
+      if (ch) await ch.delete().catch(() => null);
+      delete tickets[tId];
+      saveTickets();
+      return interaction.reply({ content: "Ticket cerrado ✅", ephemeral: true });
+    }
   }
 });
 
@@ -285,14 +423,12 @@ WELCOME / LEAVE
 client.on(Events.GuildMemberAdd, async member => {
   const ch = member.guild.channels.cache.get(config.channels.bienvenidas);
   if (!ch) return;
-
   ch.send(`🛡️ **ENTRADA REGISTRADA**\nEntidad: ${member}\nSistema: GABURON`);
 });
 
 client.on(Events.GuildMemberRemove, async member => {
   const ch = member.guild.channels.cache.get(config.channels.despedidas);
   if (!ch) return;
-
   ch.send(`📜 **SALIDA REGISTRADA**\nEntidad: ${member.user.tag}\nSistema: GABURON`);
 });
 
@@ -303,7 +439,6 @@ client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
   if (!oldM.premiumSince && newM.premiumSince && config.channels.boost) {
     const ch = await newM.guild.channels.fetch(config.channels.boost).catch(() => null);
     if (!ch) return;
-
     ch.send(`✨ **REFUERZO DETECTADO**\nUnidad: ${newM}\nIlblu ha sido fortalecido.`);
   }
 });
@@ -311,14 +446,11 @@ client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
 /* =====================
 KEEP ALIVE 24/7
 ===================== */
-// Endpoint que se puede usar para comprobar que el bot está activo
 app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
-
-// Ping automático cada 5 minutos para que no se duerma
 setInterval(() => {
   const http = require("http");
-  const url = `http://localhost:${PORT}/ping`; // si lo subes a Replit o Railway, cambia a tu URL pública
-  http.get(url, res => console.log(`🔁 Ping keep-alive, status: ${res.statusCode}`)).on("error", err => console.log("❌ Error en keep-alive:", err.message));
+  http.get(`http://localhost:${PORT}/ping`, res => console.log(`🔁 Ping keep-alive, status: ${res.statusCode}`))
+    .on("error", err => console.log("❌ Error en keep-alive:", err.message));
 }, 5 * 60 * 1000);
 
 /* =====================
