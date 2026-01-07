@@ -26,6 +26,9 @@ FILES
 const CONFIG_PATH = "./config.json";
 const PUNISH_PATH = "./punishments.json";
 
+/* =====================
+DEFAULT CONFIG
+===================== */
 const defaultConfig = {
   channels: {
     anuncios: null,
@@ -59,9 +62,7 @@ const app = express();
 app.get("/", (_, res) =>
   res.send("Gaburon operativo. Ilblu permanece protegido.")
 );
-app.listen(PORT, () =>
-  console.log(`Gaburon escuchando en puerto ${PORT}`)
-);
+app.listen(PORT);
 
 /* =====================
 CLIENT
@@ -81,42 +82,30 @@ SLASH COMMANDS
 const commands = [
   new SlashCommandBuilder()
     .setName("anunce")
-    .setDescription("Transmitir mensaje oficial de Gaburon")
+    .setDescription("Transmisión oficial de Gaburon")
     .addStringOption(o =>
-      o.setName("mensaje")
-        .setDescription("Mensaje autorizado")
-        .setRequired(true)
+      o.setName("mensaje").setDescription("Mensaje").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("castigar")
     .setDescription("Ejecutar sentencia del Abismo")
     .addUserOption(o =>
-      o.setName("usuario")
-        .setDescription("Entidad objetivo")
-        .setRequired(true)
+      o.setName("usuario").setDescription("Entidad objetivo").setRequired(true)
     )
     .addStringOption(o => {
       o.setName("castigo")
-        .setDescription("Tipo de sentencia")
+        .setDescription("Tipo de castigo")
         .setRequired(true);
-
-      if (punishments.length) {
-        o.addChoices(
-          ...punishments.map(p => ({
-            name: p.nombre,
-            value: p.id
-          }))
-        );
-      } else {
-        o.addChoices({ name: "Advertencia", value: "warn" });
-      }
+      punishments.forEach(p =>
+        o.addChoices({ name: p.nombre, value: p.id })
+      );
       return o;
     }),
 
   new SlashCommandBuilder()
     .setName("createuser")
-    .setDescription("Crear contador de exploradores humanos")
+    .setDescription("Crear contador de exploradores")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
   new SlashCommandBuilder()
@@ -124,20 +113,10 @@ const commands = [
     .setDescription("Crear contador de unidades mecánicas")
     .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
 
-  new SlashCommandBuilder()
-    .setName("setchannelaliance")
-    .setDescription("Asignar canal de alianzas")
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-
-  new SlashCommandBuilder()
-    .setName("setchannelboost")
-    .setDescription("Asignar canal de refuerzos")
-    .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-
-  ...["anuncios", "castigos", "bienvenidas", "despedidas"].map(c =>
+  ...["anuncios","castigos","bienvenidas","despedidas","alianzas","boost"].map(c =>
     new SlashCommandBuilder()
       .setName(`setchannel${c}`)
-      .setDescription(`Asignar canal de ${c}`)
+      .setDescription(`Asignar canal ${c}`)
       .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
   )
 ];
@@ -151,27 +130,22 @@ client.on(Events.InteractionCreate, async interaction => {
 
   /* ===== CHANNEL SELECT ===== */
   if (interaction.isChannelSelectMenu()) {
-    if (!interaction.customId.startsWith("set_")) return;
-
     const id = interaction.customId.replace("set_", "");
     config.channels[id] = interaction.values[0];
     saveConfig();
-
     return interaction.update({
-      content: "Registro confirmado. Gaburon almacenó la ubicación.",
+      content: "Canal registrado por Gaburon.",
       components: []
     });
   }
 
   if (!interaction.isChatInputCommand()) return;
 
-  /* ===== SET CHANNELS ===== */
+  /* ===== SETCHANNEL ===== */
   if (interaction.commandName.startsWith("setchannel")) {
-    const id = interaction.commandName.replace("setchannel", "").toLowerCase();
-
+    const id = interaction.commandName.replace("setchannel", "");
     const menu = new ChannelSelectMenuBuilder()
       .setCustomId(`set_${id}`)
-      .setPlaceholder("Seleccionar canal")
       .addChannelTypes(ChannelType.GuildText)
       .setMinValues(1)
       .setMaxValues(1);
@@ -185,12 +159,11 @@ client.on(Events.InteractionCreate, async interaction => {
   /* ===== CREATE USER COUNTER ===== */
   if (interaction.commandName === "createuser") {
     await interaction.deferReply({ ephemeral: true });
-
     const members = await interaction.guild.members.fetch();
-    const humans = members.filter(m => !m.user.bot).size;
+    const count = members.filter(m => !m.user.bot).size;
 
     const ch = await interaction.guild.channels.create({
-      name: `Exploradores: ${humans}`,
+      name: `Exploradores: ${count}`,
       type: ChannelType.GuildVoice,
       permissionOverwrites: [{
         id: interaction.guild.id,
@@ -200,19 +173,17 @@ client.on(Events.InteractionCreate, async interaction => {
 
     config.counters.users = ch.id;
     saveConfig();
-
-    return interaction.editReply("Contador humano establecido.");
+    return interaction.editReply("Contador humano operativo.");
   }
 
   /* ===== CREATE BOT COUNTER ===== */
   if (interaction.commandName === "createbot") {
     await interaction.deferReply({ ephemeral: true });
-
     const members = await interaction.guild.members.fetch();
-    const bots = members.filter(m => m.user.bot).size;
+    const count = members.filter(m => m.user.bot).size;
 
     const ch = await interaction.guild.channels.create({
-      name: `Unidades: ${bots}`,
+      name: `Unidades: ${count}`,
       type: ChannelType.GuildVoice,
       permissionOverwrites: [{
         id: interaction.guild.id,
@@ -222,54 +193,44 @@ client.on(Events.InteractionCreate, async interaction => {
 
     config.counters.bots = ch.id;
     saveConfig();
-
-    return interaction.editReply("Contador mecánico establecido.");
+    return interaction.editReply("Contador mecánico operativo.");
   }
 
-  /* ===== CASTIGAR (FIX REAL) ===== */
+  /* ===== CASTIGAR ===== */
   if (interaction.commandName === "castigar") {
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
 
-    const user = interaction.options.getUser("usuario");
-    const castigo = interaction.options.getString("castigo");
+    const target = interaction.options.getUser("usuario");
+    const id = interaction.options.getString("castigo");
+    const data = punishments.find(p => p.id === id);
+    const member = await interaction.guild.members.fetch(target.id);
 
-    const msg =
-      `**SENTENCIA DEL ABISMO**\n` +
-      `Entidad: ${user}\n` +
-      `Código: ${castigo}\n` +
-      `Ejecución registrada por Gaburon.`;
+    if (data.action === "timeout")
+      await member.timeout(data.duration, "Gaburon");
+    if (data.action === "ban")
+      await member.ban({ reason: "Gaburon" });
 
     if (config.channels.castigos) {
-      const ch = await interaction.guild.channels
-        .fetch(config.channels.castigos)
-        .catch(() => null);
-      if (ch) await ch.send(msg);
+      const ch = await interaction.guild.channels.fetch(config.channels.castigos);
+      if (ch)
+        ch.send(
+          `**SENTENCIA DEL ABISMO**\n` +
+          `Entidad: ${target}\n` +
+          `Castigo: ${data.nombre}\n` +
+          `Ejecutor: **GABURON**`
+        );
     }
 
-    return interaction.editReply(msg);
+    return interaction.editReply("Sentencia ejecutada.");
   }
 
-  /* ===== ANNOUNCE ===== */
+  /* ===== ANUNCE ===== */
   if (interaction.commandName === "anunce") {
-    const ch = await interaction.guild.channels
-      .fetch(config.channels.anuncios)
-      .catch(() => null);
-
-    if (!ch)
-      return interaction.reply({
-        ephemeral: true,
-        content: "Canal de anuncios no configurado."
-      });
-
-    await ch.send(
-      `**TRANSMISIÓN OFICIAL — GABURON**\n` +
-      interaction.options.getString("mensaje")
-    );
-
-    return interaction.reply({
-      ephemeral: true,
-      content: "Transmisión ejecutada."
-    });
+    await interaction.deferReply({ ephemeral: true });
+    const ch = await interaction.guild.channels.fetch(config.channels.anuncios);
+    if (ch)
+      ch.send(`**TRANSMISIÓN — GABURON**\n${interaction.options.getString("mensaje")}`);
+    return interaction.editReply("Transmisión enviada.");
   }
 });
 
@@ -277,19 +238,15 @@ client.on(Events.InteractionCreate, async interaction => {
 COUNTERS UPDATE
 ===================== */
 async function updateCounters() {
-  for (const guild of client.guilds.cache.values()) {
-    const members = await guild.members.fetch();
-    const humans = members.filter(m => !m.user.bot).size;
-    const bots = members.filter(m => m.user.bot).size;
-
+  for (const g of client.guilds.cache.values()) {
+    const m = await g.members.fetch();
     if (config.counters.users) {
-      const ch = guild.channels.cache.get(config.counters.users);
-      if (ch) await ch.setName(`Exploradores: ${humans}`);
+      const ch = g.channels.cache.get(config.counters.users);
+      if (ch) ch.setName(`Exploradores: ${m.filter(x => !x.user.bot).size}`);
     }
-
     if (config.counters.bots) {
-      const ch = guild.channels.cache.get(config.counters.bots);
-      if (ch) await ch.setName(`Unidades: ${bots}`);
+      const ch = g.channels.cache.get(config.counters.bots);
+      if (ch) ch.setName(`Unidades: ${m.filter(x => x.user.bot).size}`);
     }
   }
 }
@@ -297,85 +254,36 @@ async function updateCounters() {
 /* =====================
 WELCOME / LEAVE
 ===================== */
-client.on(Events.GuildMemberAdd, async member => {
+client.on(Events.GuildMemberAdd, async m => {
   if (!config.channels.bienvenidas) return;
-
-  const ch = await member.guild.channels
-    .fetch(config.channels.bienvenidas)
-    .catch(() => null);
-
-  if (!ch) return;
-
-  ch.send(
-    `**ENTRADA REGISTRADA**\n` +
-    `Entidad: ${member}\n` +
-    `Estado: bajo vigilancia.\n` +
-    `Gaburon protege Ilblu.`
-  );
+  const ch = await m.guild.channels.fetch(config.channels.bienvenidas);
+  if (ch)
+    ch.send(`**ENTRADA**\nEntidad: ${m}\nEstado: monitoreado por Gaburon.`);
 });
 
-client.on(Events.GuildMemberRemove, async member => {
+client.on(Events.GuildMemberRemove, async m => {
   if (!config.channels.despedidas) return;
-
-  const ch = await member.guild.channels
-    .fetch(config.channels.despedidas)
-    .catch(() => null);
-
-  if (!ch) return;
-
-  ch.send(
-    `**SALIDA REGISTRADA**\n` +
-    `Entidad: ${member.user.tag}\n` +
-    `Archivo cerrado por Gaburon.`
-  );
+  const ch = await m.guild.channels.fetch(config.channels.despedidas);
+  if (ch)
+    ch.send(`**SALIDA**\nEntidad: ${m.user.tag}\nRegistro cerrado.`);
 });
 
 /* =====================
 BOOST
 ===================== */
-client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
-  if (!oldM.premiumSince && newM.premiumSince && config.channels.boost) {
-    const ch = await newM.guild.channels
-      .fetch(config.channels.boost)
-      .catch(() => null);
-
-    if (!ch) return;
-
-    ch.send(
-      `**REFUERZO DETECTADO**\n` +
-      `Unidad: ${newM}\n` +
-      `Ilblu ha sido fortalecido.`
-    );
+client.on(Events.GuildMemberUpdate, async (o, n) => {
+  if (!o.premiumSince && n.premiumSince && config.channels.boost) {
+    const ch = await n.guild.channels.fetch(config.channels.boost);
+    if (ch)
+      ch.send(`**REFUERZO**\nUnidad: ${n}\nIlblu fortalecido.`);
   }
-});
-
-/* =====================
-ALLIANCES
-===================== */
-client.on(Events.MessageCreate, async msg => {
-  if (msg.author.bot) return;
-  if (msg.channel.id !== config.channels.alianzas) return;
-
-  const invite = /(discord\.gg\/|discord\.com\/invite\/)/i;
-  if (!invite.test(msg.content)) return;
-
-  msg.channel.send(
-    `**PACTO INTER-ABISMO**\n` +
-    `Origen: ${msg.author}\n` +
-    `Estado: en evaluación.`
-  );
 });
 
 /* =====================
 READY
 ===================== */
 client.once(Events.ClientReady, async () => {
-  await rest.put(
-    Routes.applicationCommands(CLIENT_ID),
-    { body: commands }
-  );
-
-  console.log(`Gaburon en línea como ${client.user.tag}`);
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
   setInterval(updateCounters, 5 * 60 * 1000);
 });
 
