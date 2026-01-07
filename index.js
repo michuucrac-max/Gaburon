@@ -309,6 +309,19 @@ client.on(Events.GuildMemberUpdate, async (oldM, newM) => {
 });
 
 /* =====================
+KEEP ALIVE 24/7
+===================== */
+// Endpoint que se puede usar para comprobar que el bot está activo
+app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
+
+// Ping automático cada 5 minutos para que no se duerma
+setInterval(() => {
+  const http = require("http");
+  const url = `http://localhost:${PORT}/ping`; // si lo subes a Replit o Railway, cambia a tu URL pública
+  http.get(url, res => console.log(`🔁 Ping keep-alive, status: ${res.statusCode}`)).on("error", err => console.log("❌ Error en keep-alive:", err.message));
+}, 5 * 60 * 1000);
+
+/* =====================
 LOGIN
 ===================== */
 client.login(TOKEN);
