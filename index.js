@@ -305,7 +305,8 @@ async function sendTicketBanner(channel){
       .setDescription("Selecciona el tipo de ticket que deseas abrir:")
       .addFields(
         {name:"Queja / Sugerencia",value:"Abre un ticket para enviar quejas o sugerencias."},
-        {name:"Alianza",value:"Abre un ticket para registrar una alianza."}
+        {name:"Alianza",value:"Abre un ticket para registrar una alianza."},
+        {name:"staff apply",value:"Abre un ticket para aplicar como staff del servidor."}
       ).setFooter({text:"Gaburon supervisa los tickets"});
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("openticket_general").setLabel("Abrir ticket").setStyle(ButtonStyle.Primary),
@@ -350,14 +351,20 @@ BOOST / WELCOME / LEAVE
 client.on(Events.GuildMemberAdd, async m=>{
   try{
     const ch=m.guild.channels.cache.get(config.channels.bienvenidas);
-    if(ch) await ch.send(`🛡️ **ENTRADA REGISTRADA**\nEntidad: ${m}\nSistema: GABURON`);
+    if(ch) await ch.send(`> ╂BIENVENIDA╂
+> El explorador ${m} ha llegado a Bendición y Maldición Abisal.  
+> Prepárate, tu descenso comienza aquí.  
+> Que el Abismo guíe tus pasos y te proteja de lo que yace en sus capas. \nSistema: GABURON`);
   }catch(err){console.error("Error welcome:",err);}
 });
 
 client.on(Events.GuildMemberRemove, async m=>{
   try{
     const ch=m.guild.channels.cache.get(config.channels.despedidas);
-    if(ch) await ch.send(`📜 **SALIDA REGISTRADA**\nEntidad: ${m.user.tag}\nSistema: GABURON`);
+    if(ch) await ch.send(`> ╂DESPEDIDA╂
+> El explorador ${m.user.tag} ha abandonado la expedición.  
+> Sus pasos quedarán registrados en las memorias del Abismo.  
+> Que encuentres seguridad fuera de estas capas.\nSistema: GABURON`);
   }catch(err){console.error("Error leave:",err);}
 });
 
@@ -365,7 +372,10 @@ client.on(Events.GuildMemberUpdate, async (oldM,newM)=>{
   try{
     if(!oldM.premiumSince && newM.premiumSince && config.channels.boost){
       const ch = await newM.guild.channels.fetch(config.channels.boost).catch(()=>null);
-      if(ch) await ch.send(`✨ **REFUERZO DETECTADO**\nUnidad: ${newM}\nIlblu ha sido fortalecido.`);
+      if(ch) await ch.send(`> ╂IMPULSO╂
+> ${newM} ha reforzado nuestra expedición con su energía.  
+> La seguridad y organización del Abismo se fortalecen gracias a ti.  
+> Que tu aporte ilumine incluso las profundidades más oscuras. \nIlblu ha sido fortalecido.`);
     }
   }catch(err){console.error("Error boost:",err);}
 });
@@ -382,7 +392,7 @@ function startAutoTops(){
       const members = await guild.members.fetch();
       const topUsers = members.filter(m=>!m.user.bot).map(m=>({tag:m.user.tag,id:m.id}));
       const embed = new EmbedBuilder()
-        .setTitle("🏆 TOP Exploradores")
+        .setTitle("🏆 TOP ")
         .setDescription(topUsers.slice(0,10).map((u,i)=>`**${i+1}.** ${u.tag}`).join("\n"))
         .setFooter({text:"Gaburon supervisa los tops"});
       const ch = guild.channels.cache.get(config.channels.tops);
