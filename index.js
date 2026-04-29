@@ -352,7 +352,7 @@ client.on(Events.GuildMemberAdd, async m=>{
   try{
     const ch=m.guild.channels.cache.get(config.channels.bienvenidas);
     if(ch) await ch.send(`> ╂BIENVENIDA╂
-> El explorador ${m} ha llegado a Bendición y Maldición Abisal.  
+> El explorador ${m} ha llegado a ${servername}. 
 > Prepárate, tu descenso comienza aquí.  
 > Que el Abismo guíe tus pasos y te proteja de lo que yace en sus capas. \nSistema: GABURON`);
   }catch(err){console.error("Error welcome:",err);}
