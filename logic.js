@@ -1,282 +1,625 @@
-import {
-  ChannelType,
-  PermissionsBitField,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} from "discord.js";
+/* ==========================
+          IMPORTS
+========================== */
+
 import fs from "fs";
 
-// =====================
-// CONFIG
-// =====================
+import {
+    ChannelType,
+    PermissionsBitField,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ChannelSelectMenuBuilder,
+    StringSelectMenuBuilder
+} from "discord.js";
+
+/* ==========================
+           RUTAS
+========================== */
+
 const CONFIG_PATH = "./config.json";
-let config = fs.existsSync(CONFIG_PATH)
-  ? JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"))
-  : {};
-const saveConfig = () =>
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 
-// =====================
-// 📢 anuncio
-// =====================
-export async function anuncio(interaction) {
-  return interaction.reply({ content: "Placeholder: anuncio", ephemeral: true });
-}
+/* ==========================
+           CONFIG
+========================== */
 
-// =====================
-// 🔗 alianza
-// =====================
-export async function alianza(interaction) {
-  return interaction.reply({ content: "Placeholder: alianza", ephemeral: true });
-}
+let config = {
 
-// =====================
-// ⚠️ castigar
-// =====================
-export async function castigar(interaction) {
-  return interaction.reply({ content: "Placeholder: castigar", ephemeral: true });
-}
+    channels: {},
+    counters: {}
 
-// =====================
-// 👤 createhuman
-// =====================
-export async function createhuman(interaction) {
-  try {
-    const guild = interaction.guild;
-    let category = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-    );
-    if (!category) {
-      category = await guild.channels.create({
-        name: "Status",
-        type: ChannelType.GuildCategory
-      });
+};
+
+/* ==========================
+      INICIALIZACIÓN
+========================== */
+
+loadConfig();
+
+/* ==========================
+        CONFIG.JSON
+========================== */
+
+function loadConfig() {
+
+    if (!fs.existsSync(CONFIG_PATH)) {
+
+        saveConfig();
+
+        return;
+
     }
-    const members = await guild.members.fetch();
-    const humans = members.filter(m => !m.user.bot).size;
-    const ch = await guild.channels.create({
-      name: `👤 Exploradores: ${humans}`,
-      type: ChannelType.GuildVoice,
-      parent: category.id,
-      permissionOverwrites: [{ id: guild.id, deny: [PermissionsBitField.Flags.Connect] }]
-    });
-    config.counters.users = ch.id;
-    saveConfig();
-    return interaction.reply({ content: "Contador humano creado en categoría Status.", ephemeral: true });
-  } catch (err) {
-    console.error("Error creando contador humanos:", err);
-    return interaction.reply({ content: "Error creando contador humanos.", ephemeral: true });
-  }
-}
 
-// =====================
-// 🤖 createbot
-// =====================
-export async function createbot(interaction) {
-  try {
-    const guild = interaction.guild;
-    let category = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-    );
-    if (!category) {
-      category = await guild.channels.create({
-        name: "Status",
-        type: ChannelType.GuildCategory
-      });
+    try {
+
+        config = JSON.parse(
+
+            fs.readFileSync(CONFIG_PATH, "utf8")
+
+        );
+
     }
-    const members = await guild.members.fetch();
-    const bots = members.filter(m => m.user.bot).size;
-    const ch = await guild.channels.create({
-      name: `🤖 Unidades: ${bots}`,
-      type: ChannelType.GuildVoice,
-      parent: category.id,
-      permissionOverwrites: [{ id: guild.id, deny: [PermissionsBitField.Flags.Connect] }]
-    });
-    config.counters.bots = ch.id;
-    saveConfig();
-    return interaction.reply({ content: "Contador bot creado en categoría Status.", ephemeral: true });
-  } catch (err) {
-    console.error("Error creando contador bots:", err);
-    return interaction.reply({ content: "Error creando contador bots.", ephemeral: true });
-  }
-}
 
-// =====================
-// setchanneltikets
-// =====================
-export async function setchanneltikets(interaction) {
-  try {
-    // Guardar canal de tickets en config
+    catch {
+
+        console.log("⚠️ config.json corrupto. Restaurando...");
+
+        config = {
+
+            channels: {},
+            counters: {}
+
+        };
+
+        saveConfig();
+
+    }
+
     config.channels ??= {};
-    config.channels[interaction.guild.id] ??= {};
-    config.channels[interaction.guild.id].tickets = interaction.channel.id;
-    saveConfig();
+    config.counters ??= {};
 
-    // Banner con botón para crear ticket
-    const embed = new EmbedBuilder()
-      .setColor(0x6A4CFF)
-      .setTitle("🎫 Sistema de Tickets • Gaburon")
-      .setDescription(
-        "Si tienes alguna **queja, duda o sugerencia**, puedes crear un ticket.\n\n" +
-        "Un miembro de la **Administración** te atenderá lo antes posible."
-      )
-      .setFooter({ text: "Gaburon • Sistema de Tickets" });
+}
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("ticket_create")
-        .setLabel("🎫 Crear Ticket")
-        .setStyle(ButtonStyle.Primary)
+function saveConfig() {
+
+    try {
+
+        fs.writeFileSync(
+
+            CONFIG_PATH,
+            JSON.stringify(config, null, 4),
+            "utf8"
+
+        );
+
+        console.log("✅ config.json guardado correctamente");
+
+    }
+
+    catch (err) {
+
+        console.error("❌ Error guardando config.json:", err);
+
+    }
+
+}
+
+/* ==========================
+       FUNCIONES
+========================== */
+
+function placeholder(interaction, text = "🚧 Este sistema aún no está implementado.") {
+
+    return interaction.reply({
+
+        content: text,
+
+        ephemeral: true
+
+    });
+
+}
+
+/* ==========================
+           LÓGICA
+========================== */
+
+export async function executeLogic(interaction, client) {
+
+    /* ==========================
+        SELECT MENUS
+    ========================== */
+
+    if (
+
+        interaction.isChannelSelectMenu() ||
+
+        interaction.isStringSelectMenu()
+
+    ) {
+
+        return handleChannelMenus(interaction);
+
+    }
+
+    /* ==========================
+           BOTONES
+    ========================== */
+
+    if (interaction.isButton()) {
+
+        return handleButtons(interaction);
+
+    }
+
+    /* ==========================
+           MODALES
+    ========================== */
+
+    if (interaction.isModalSubmit()) {
+
+        return handleModals(interaction);
+
+    }
+
+    /* ==========================
+        SLASH COMMANDS
+    ========================== */
+
+    if (!interaction.isChatInputCommand())
+
+        return;
+
+    return handleSlashCommands(
+
+        interaction,
+
+        client
+
     );
 
-    await interaction.channel.send({ embeds: [embed], components: [row] });
+}
+
+/* ==========================
+      SELECT MENUS
+========================== */
+
+async function handleChannelMenus(interaction) {
+
+    switch (interaction.customId) {
+
+/* ==========================
+      SET TICKETS CHANNEL
+========================== */
+
+case "set_tickets_channel": {
+
+    config.channels[interaction.guild.id] ??= {};
+
+    config.channels[interaction.guild.id].tickets = interaction.values[0];
+
+    saveConfig();
+
+    const channel = interaction.guild.channels.cache.get(
+        interaction.values[0]
+    );
+
+    const embed = new EmbedBuilder()
+
+        .setColor(0x5865F2)
+
+        .setTitle("🎫 Sistema de Tickets")
+
+        .setDescription(
+`¿Necesitas ayuda?
+
+Pulsa el botón de abajo para abrir un ticket.
+
+Nuestro equipo te atenderá lo antes posible.`
+        )
+
+        .setFooter({
+
+            text: "Gaburon • Sistema de Tickets"
+
+        });
+
+    const row = new ActionRowBuilder()
+
+        .addComponents(
+
+            new ButtonBuilder()
+
+                .setCustomId("ticket_create")
+
+                .setEmoji("🎫")
+
+                .setLabel("Crear Ticket")
+
+                .setStyle(ButtonStyle.Primary)
+
+        );
+
+    await channel.send({
+
+        embeds: [embed],
+
+        components: [row]
+
+    });
+
+    return interaction.update({
+
+        content:
+`✅ Canal configurado correctamente.
+
+📍 Canal:
+<#${interaction.values[0]}>
+
+El panel de tickets fue enviado correctamente.`,
+
+        components: []
+
+    });
+
+}
+        
+        /* ==========================
+            DESCONOCIDO
+        ========================== */
+
+        default: {
+
+            return interaction.reply({
+
+                content: "❌ Menú desconocido.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+          BOTONES
+========================== */
+
+async function handleButtons(interaction) {
+
+    switch (interaction.customId) {
+
+        /* ==========================
+          CREAR TICKET
+        ========================== */
+
+        case "ticket_create": {
+
+            return placeholder(
+
+                interaction,
+
+                "🎫 Sistema de tickets en desarrollo."
+
+            );
+
+        }
+
+        /* ==========================
+         ACEPTAR TICKET
+        ========================== */
+
+        case "ticket_accept": {
+
+            return placeholder(
+
+                interaction,
+
+                "✅ Sistema de aceptación en desarrollo."
+
+            );
+
+        }
+
+        /* ==========================
+        RECHAZAR TICKET
+        ========================== */
+
+        case "ticket_reject": {
+
+            return placeholder(
+
+                interaction,
+
+                "❌ Sistema de rechazo en desarrollo."
+
+            );
+
+        }
+
+        /* ==========================
+          CERRAR TICKET
+        ========================== */
+
+        case "ticket_close": {
+
+            return placeholder(
+
+                interaction,
+
+                "🔒 Sistema de cierre en desarrollo."
+
+            );
+
+        }
+
+        /* ==========================
+            DESCONOCIDO
+        ========================== */
+
+        default: {
+
+            return interaction.reply({
+
+                content: "❌ Botón desconocido.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+          MODALES
+========================== */
+
+async function handleModals(interaction) {
+
+    switch (interaction.customId) {
+
+        /* ==========================
+            DESCONOCIDO
+        ========================== */
+
+        default: {
+
+            return interaction.reply({
+
+                content: "❌ Formulario desconocido.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+      SLASH COMMANDS
+========================== */
+
+async function handleSlashCommands(interaction, client) {
+
+    switch (interaction.commandName) {
+
+        /* ==========================
+            CONFIGURACIÓN
+        ========================== */
+
+/* ==========================
+      SET CHANNEL TICKETS
+========================== */
+
+case "setchanneltickets": {
+
+    if (!interaction.member.permissions.has(
+        PermissionsBitField.Flags.Administrator
+    )) {
+
+        return interaction.reply({
+
+            content: "❌ Solo los administradores pueden usar este comando.",
+
+            ephemeral: true
+
+        });
+
+    }
+
+    const row = new ActionRowBuilder()
+
+        .addComponents(
+
+            new ChannelSelectMenuBuilder()
+
+                .setCustomId("set_tickets_channel")
+
+                .setPlaceholder("Selecciona el canal de tickets")
+
+                .setChannelTypes(ChannelType.GuildText)
+
+                .setMinValues(1)
+
+                .setMaxValues(1)
+
+        );
+
+    const currentChannel =
+        config.channels?.[interaction.guild.id]?.tickets;
 
     return interaction.reply({
-      content: `✅ Canal de tickets configurado: <#${interaction.channel.id}>`,
-      ephemeral: true
+
+        content: currentChannel
+
+            ? `📍 Canal actual:\n<#${currentChannel}>\n\nSelecciona otro canal si deseas cambiarlo.`
+
+            : "🎫 Selecciona el canal donde se enviará el panel de tickets.",
+
+        components: [row],
+
+        ephemeral: true
+
     });
-  } catch (err) {
-    console.error("❌ Error configurando canal de tickets:", err);
-    return interaction.reply({
-      content: "❌ Hubo un error al configurar el canal de tickets.",
-      ephemeral: true
-    });
-  }
+
 }
 
-// =====================
-// ticket_create
-// =====================
-export async function handleTicketCreate(interaction) {
-  const guild = interaction.guild;
+        case "setchannelanuncios": {
 
-  // Buscar o crear categoría Administración
-  let category = guild.channels.cache.find(
-    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "administracion"
-  );
-  if (!category) {
-    category = await guild.channels.create({
-      name: "Administracion",
-      type: ChannelType.GuildCategory
-    });
-  }
+            return placeholder(
+                interaction,
+                "📢 Configuración de anuncios en desarrollo."
+            );
 
-  // Crear canal de ticket
-  const ticketChannel = await guild.channels.create({
-    name: `ticket-${interaction.user.username}`,
-    type: ChannelType.GuildText,
-    parent: category.id,
-    permissionOverwrites: [
-      { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-      { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
-    ]
-  });
+        }
 
-  // Notificar al usuario dentro del canal del ticket
-  await ticketChannel.send(`🎫 Hola ${interaction.user}, tu ticket ha sido creado. Un administrador te atenderá aquí.`);
+        case "setchannelcastigos": {
 
-  // Notificar a administradores
-  const adminRole = guild.roles.cache.find(r => r.permissions.has("Administrator"));
-  if (adminRole) {
-    await ticketChannel.send(`📢 <@&${adminRole.id}> nuevo ticket creado por ${interaction.user}.`);
-  }
+            return placeholder(
+                interaction,
+                "⚠️ Configuración de castigos en desarrollo."
+            );
 
-  // Embed dentro del ticket con botones
-  const embed = new EmbedBuilder()
-    .setColor(0x2ecc71)
-    .setTitle("🎫 Ticket en revisión")
-    .setDescription("Un administrador revisará tu caso.\n\nUsa los botones para gestionar el ticket.");
+        }
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_accept")
-      .setLabel("✅ Aceptar")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId("ticket_reject")
-      .setLabel("❌ Rechazar")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("ticket_close")
-      .setLabel("🔒 Cerrar")
-      .setStyle(ButtonStyle.Secondary)
-  );
+        case "setchannelbienvenidas": {
 
-  await ticketChannel.send({ embeds: [embed], components: [row] });
+            return placeholder(
+                interaction,
+                "👋 Configuración de bienvenidas en desarrollo."
+            );
 
-  // Confirmación al usuario (ephemeral en el canal original)
-  await interaction.reply({
-    content: `✅ Ticket creado: <#${ticketChannel.id}>`,
-    ephemeral: true
-  });
+        }
+
+        case "setchanneldespedidas": {
+
+            return placeholder(
+                interaction,
+                "📤 Configuración de despedidas en desarrollo."
+            );
+
+        }
+
+        case "setchannelalianzas": {
+
+            return placeholder(
+                interaction,
+                "🤝 Configuración de alianzas en desarrollo."
+            );
+
+        }
+
+        case "setchannelboost": {
+
+            return placeholder(
+                interaction,
+                "🚀 Configuración de boosts en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+               TICKETS
+        ========================== */
+
+        case "ticket": {
+
+            return placeholder(
+                interaction,
+                "🎫 Sistema de tickets en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+             CONTADORES
+        ========================== */
+
+        case "createhuman": {
+
+            return placeholder(
+                interaction,
+                "👤 Contador de usuarios en desarrollo."
+            );
+
+        }
+
+        case "createbot": {
+
+            return placeholder(
+                interaction,
+                "🤖 Contador de bots en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+             MODERACIÓN
+        ========================== */
+
+        case "castigar": {
+
+            return placeholder(
+                interaction,
+                "⚠️ Sistema de castigos en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+              ANUNCIOS
+        ========================== */
+
+        case "anuncio": {
+
+            return placeholder(
+                interaction,
+                "📢 Sistema de anuncios en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+              ALIANZAS
+        ========================== */
+
+        case "alianza": {
+
+            return placeholder(
+                interaction,
+                "🤝 Sistema de alianzas en desarrollo."
+            );
+
+        }
+
+        /* ==========================
+             DESCONOCIDO
+        ========================== */
+
+        default: {
+
+            return interaction.reply({
+
+                content: "❌ Comando desconocido.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
 }
 
-// =====================
-// ticket_buttons
-// =====================
-export async function handleTicketButtons(interaction) {
-  const channel = interaction.channel;
-
-  switch (interaction.customId) {
-    case "ticket_accept":
-      await interaction.reply({ content: "✅ Ticket aceptado." });
-      break;
-
-    case "ticket_reject":
-    case "ticket_close":
-      await interaction.reply({ content: "❌ Ticket cerrado." });
-      await channel.delete().catch(() => {});
-      break;
-  }
-}
-
-// =====================
-// 🏆 settoptop
-// =====================
-export async function settoptop(interaction) {
-  return interaction.reply({ content: "Placeholder: settoptop", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchannelanuncios
-// =====================
-export async function setchannelanuncios(interaction) {
-  return interaction.reply({ content: "Placeholder: setchannelanuncios", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchannelcastigos
-// =====================
-export async function setchannelcastigos(interaction) {
-  return interaction.reply({ content: "Placeholder: setchannelcastigos", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchannelbienvenidas
-// =====================
-export async function setchannelbienvenidas(interaction) {
-  return interaction.reply({ content: "Placeholder: setchannelbienvenidas", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchanneldespedidas
-// =====================
-export async function setchanneldespedidas(interaction) {
-  return interaction.reply({ content: "Placeholder: setchanneldespedidas", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchannelalianzas
-// =====================
-export async function setchannelalianzas(interaction) {
-  return interaction.reply({ content: "Placeholder: setchannelalianzas", ephemeral: true });
-}
-
-// =====================
-// ⚙️ setchannelboost
-// =====================
-export async function setchannelboost(interaction) {
-  return interaction.reply({ content: "Placeholder: setchannelboost", ephemeral: true });
-}
