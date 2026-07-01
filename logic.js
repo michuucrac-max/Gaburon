@@ -67,7 +67,7 @@ function placeholder(interaction, text) {
  *
  * Guarda por guild: config.counters[guild.id] = { humans: id, bots: id }
  */
-export async function ensureCounterChannel(guild, key, label, count) {
+async function ensureCounterChannel(guild, key, label, count) {
   try {
     // Asegurar estructura por guild
     config.counters ??= {};
