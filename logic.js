@@ -159,7 +159,7 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
- case "createhuman": {
+case "createhuman": {
   const members = await interaction.guild.members.fetch();
   const humans = members.filter(m => !m.user.bot).size;
 
@@ -174,7 +174,7 @@ async function handleSlashCommands(interaction, client) {
     });
   }
 
-  // HUMANS
+  // Buscar canal ya guardado
   let ch = interaction.guild.channels.cache.get(config.counters.humans);
   if (!ch) {
     ch = await interaction.guild.channels.create({
@@ -209,7 +209,7 @@ case "createbot": {
     });
   }
 
-  // BOTS
+  // Buscar canal ya guardado
   let ch = interaction.guild.channels.cache.get(config.counters.bots);
   if (!ch) {
     ch = await interaction.guild.channels.create({
@@ -228,7 +228,7 @@ case "createbot": {
 
   return interaction.reply({ content: "✅ Contador de bots creado/actualizado.", ephemeral: true });
 }
-
+                      
     case "settoptop":
       config.channels[interaction.guild.id] ??= {};
       config.channels[interaction.guild.id].tops = interaction.options.getChannel("canal").id;
