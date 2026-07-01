@@ -117,11 +117,101 @@ export async function createbot(interaction) {
 }
 
 
+import { ChannelType, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+
 // 🎫 SET CHANNEL TICKETS
 export async function setchanneltikets(interaction) {
-  // TODO: implementar lógica de canal tickets
-  return interaction.reply({ content: "Placeholder: setchanneltikets", ephemeral: true });
+  try {
+    const canal = interaction.options.getChannel("canal");
+    if (!canal || canal.type !== ChannelType.GuildText) {
+      return interaction.reply({ content: "Canal inválido.", ephemeral: true });
+    }
+
+    // Guardar canal en config
+    config.channels.tikets = { channelId: canal.id, messageId: null };
+    saveConfig();
+
+    // Enviar banner de tickets
+    const embed = new EmbedBuilder()
+      .setTitle("🎫 Sistema de Tickets")
+      .setDescription("Selecciona el tipo de ticket que deseas abrir:")
+      .addFields(
+        { name: "Queja / Sugerencia", value: "Abre un ticket para enviar quejas o sugerencias." },
+        { name: "Alianza", value: "Abre un ticket para registrar una alianza." },
+        { name: "Staff Apply", value: "Abre un ticket para aplicar como staff del servidor." }
+      )
+      .setFooter({ text: "Gaburon supervisa los tickets" });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("openticket_general").setLabel("Abrir ticket").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("openticket_ally").setLabel("Abrir ticket ally").setStyle(ButtonStyle.Success)
+    );
+
+    const msg = await canal.send({ embeds: [embed], components: [row] });
+    config.channels.tikets.messageId = msg.id;
+    saveConfig();
+
+    return interaction.reply({ content: "Sistema de tickets configurado.", ephemeral: true });
+  } catch (err) {
+    console.error("Error configurando tickets:", err);
+    return interaction.reply({ content: "Error configurando tickets.", ephemeral: true });
+  }
 }
+
+// 🎫 CREAR TICKET
+export async function openticket(interaction, tipo = "general") {
+  try {
+    const guild = interaction.guild;
+
+    // Buscar o crear categoría "Administración"
+    let category = guild.channels.cache.find(
+      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes("administracion")
+    );
+    if (!category) {
+      category = await guild.channels.create({
+        name: "Administración",
+        type: ChannelType.GuildCategory
+      });
+    }
+
+    // Crear canal de ticket
+    const member = await guild.members.fetch(interaction.user.id);
+    const ch = await guild.channels.create({
+      name: `🎫-${member.user.username}`,
+      type: ChannelType.GuildText,
+      parent: category.id,
+      permissionOverwrites: [
+        { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+        { id: member.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+      ]
+    });
+
+    // Dar acceso a roles admin
+    const adminRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
+    for (const r of adminRoles.values()) {
+      await ch.permissionOverwrites.edit(r, { ViewChannel: true, SendMessages: true });
+    }
+
+    // Mensaje inicial del ticket
+    const embed = new EmbedBuilder()
+      .setTitle("🎫 Ticket creado")
+      .setDescription("Tu ticket ha sido creado, espera que un administrador lo acepte.")
+      .setFooter({ text: "Gaburon supervisa los tickets" });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`acceptticket_${ch.id}`).setLabel("Aceptar ticket").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`closeticket_${ch.id}`).setLabel("Cerrar ticket").setStyle(ButtonStyle.Danger)
+    );
+
+    await ch.send({ content: `<@${member.id}>`, embeds: [embed], components: [row] });
+
+    return interaction.reply({ content: `Ticket creado en ${ch}`, ephemeral: true });
+  } catch (err) {
+    console.error("Error creando ticket:", err);
+    return interaction.reply({ content: "Error creando ticket.", ephemeral: true });
+  }
+}
+
 
 // 🏆 SET TOP CHANNEL
 export async function settoptop(interaction) {
