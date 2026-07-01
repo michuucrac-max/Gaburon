@@ -4,5 +4,9 @@
     "castigos": null,
     "bienvenidas": null,
     "despedidas": null
+  },
+  "counters": {
+    "humans": null,
+    "bots": null
   }
 }
