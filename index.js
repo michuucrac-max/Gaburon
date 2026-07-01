@@ -1,9 +1,12 @@
 import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder } from "discord.js";
 import fs from "fs";
+import express from "express";
+import http from "http";
 import * as logic from "./logic.js";
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
+const PORT = process.env.PORT || 3000;
 
 /* =====================
 CLIENT
@@ -16,6 +19,19 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+/* =====================
+EXPRESS + KEEP-ALIVE
+===================== */
+const app = express();
+app.get("/", (_, res) => res.send("Gaburon operativo. Ilblu permanece protegido."));
+app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
+app.listen(PORT, () => console.log(`🌐 Servidor activo en puerto ${PORT}`));
+
+// Render hace health checks, así que mantenemos vivo el servicio
+setInterval(() => {
+  http.get(`http://localhost:${PORT}/ping`).on("error", () => {});
+}, 5 * 60 * 1000);
 
 /* =====================
 CARGAR COMANDOS DESDE cmd.json
