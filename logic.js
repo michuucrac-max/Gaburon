@@ -3,14 +3,12 @@
 ========================== */
 import fs from "fs";
 import {
-    ChannelType,
-    PermissionsBitField,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ChannelSelectMenuBuilder,
-    StringSelectMenuBuilder
+  ChannelType,
+  PermissionsBitField,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } from "discord.js";
 
 /* ==========================
@@ -21,241 +19,218 @@ const CONFIG_PATH = "./config.json";
 /* ==========================
            CONFIG
 ========================== */
-let config = {
-    channels: {},
-    counters: {}
-};
-
-/* ==========================
-      INICIALIZACIÓN
-========================== */
+let config = { channels: {}, counters: {} };
 loadConfig();
 
 /* ==========================
         CONFIG.JSON
 ========================== */
 function loadConfig() {
-    if (!fs.existsSync(CONFIG_PATH)) {
-        saveConfig();
-        return;
-    }
-
-    try {
-        config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-    } catch {
-        console.log("⚠️ config.json corrupto. Restaurando...");
-        config = { channels: {}, counters: {} };
-        saveConfig();
-    }
-
-    config.channels ??= {};
-    config.counters ??= {};
+  if (!fs.existsSync(CONFIG_PATH)) {
+    saveConfig();
+    return;
+  }
+  try {
+    config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  } catch {
+    console.log("⚠️ config.json corrupto. Restaurando...");
+    config = { channels: {}, counters: {} };
+    saveConfig();
+  }
+  config.channels ??= {};
+  config.counters ??= {};
 }
 
 function saveConfig() {
-    try {
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4), "utf8");
-        console.log("✅ config.json guardado correctamente");
-    } catch (err) {
-        console.error("❌ Error guardando config.json:", err);
-    }
+  try {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4), "utf8");
+    console.log("✅ config.json guardado correctamente");
+  } catch (err) {
+    console.error("❌ Error guardando config.json:", err);
+  }
 }
 
 /* ==========================
        FUNCIONES
 ========================== */
-function placeholder(interaction, text = "🚧 Este sistema aún no está implementado.") {
-    return interaction.reply({ content: text, ephemeral: true });
+function placeholder(interaction, text) {
+  return interaction.reply({ content: text, ephemeral: true });
 }
 
 /* ==========================
            LÓGICA
 ========================== */
 export async function executeLogic(interaction, client) {
-    if (interaction.isChannelSelectMenu() || interaction.isStringSelectMenu()) {
-        return handleChannelMenus(interaction);
-    }
-
-    if (interaction.isButton()) {
-        return handleButtons(interaction);
-    }
-
-    if (interaction.isModalSubmit()) {
-        return handleModals(interaction);
-    }
-
-    if (!interaction.isChatInputCommand()) return;
-
-    return handleSlashCommands(interaction, client);
-}
-
-/* ==========================
-      SELECT MENUS
-========================== */
-async function handleChannelMenus(interaction) {
-    switch (interaction.customId) {
-        case "set_tickets_channel": {
-            config.channels[interaction.guild.id] ??= {};
-            config.channels[interaction.guild.id].tickets = interaction.values[0];
-            saveConfig();
-
-            const channel = interaction.guild.channels.cache.get(interaction.values[0]);
-
-            const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle("🎫 Sistema de Tickets")
-                .setDescription(
-                    `¿Necesitas ayuda?
-
-Pulsa el botón de abajo para abrir un ticket.
-
-Nuestro equipo te atenderá lo antes posible.`
-                )
-                .setFooter({ text: "Gaburon • Sistema de Tickets" });
-
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId("ticket_create")
-                    .setEmoji("🎫")
-                    .setLabel("Crear Ticket")
-                    .setStyle(ButtonStyle.Primary)
-            );
-
-            await channel.send({ embeds: [embed], components: [row] });
-
-            return interaction.update({
-                content: `✅ Canal configurado correctamente.
-
-📍 Canal:
-<#${interaction.values[0]}>
-
-El panel de tickets fue enviado correctamente.`,
-                components: []
-            });
-        }
-
-        default: {
-            return interaction.reply({
-                content: "❌ Menú desconocido.",
-                ephemeral: true
-            });
-        }
-    }
+  if (interaction.isButton()) return handleButtons(interaction);
+  if (!interaction.isChatInputCommand()) return;
+  return handleSlashCommands(interaction, client);
 }
 
 /* ==========================
           BOTONES
 ========================== */
 async function handleButtons(interaction) {
-    switch (interaction.customId) {
-        case "ticket_create":
-            return placeholder(interaction, "🎫 Sistema de tickets en desarrollo.");
+  switch (interaction.customId) {
+    case "ticket_create": {
+      // Buscar o crear categoría Administración
+      let category = interaction.guild.channels.cache.find(
+        c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "administracion"
+      );
+      if (!category) {
+        category = await interaction.guild.channels.create({
+          name: "Administracion",
+          type: ChannelType.GuildCategory
+        });
+      }
 
-        case "ticket_accept":
-            return placeholder(interaction, "✅ Sistema de aceptación en desarrollo.");
+      // Crear canal privado para el ticket
+      const ticketChannel = await interaction.guild.channels.create({
+        name: `🎫 ticket-${interaction.user.username}`,
+        type: ChannelType.GuildText,
+        parent: category.id,
+        permissionOverwrites: [
+          { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+        ]
+      });
 
-        case "ticket_reject":
-            return placeholder(interaction, "❌ Sistema de rechazo en desarrollo.");
+      // Embed inicial en el canal del ticket
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle("🎫 Ticket creado")
+        .setDescription("Un administrador revisará tu caso pronto.");
 
-        case "ticket_close":
-            return placeholder(interaction, "🔒 Sistema de cierre en desarrollo.");
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket_accept").setLabel("Aceptar").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("ticket_reject").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("ticket_close").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
+      );
 
-        default:
-            return interaction.reply({
-                content: "❌ Botón desconocido.",
-                ephemeral: true
-            });
+      await ticketChannel.send({ embeds: [embed], components: [row] });
+
+      await interaction.reply({
+        content: `✅ Ticket creado en <#${ticketChannel.id}>`,
+        ephemeral: true
+      });
+
+      // Notificar a administradores
+      const adminRole = interaction.guild.roles.cache.find(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
+      if (adminRole) {
+        await ticketChannel.send(`🔔 <@&${adminRole.id}> nuevo ticket creado por ${interaction.user}`);
+      }
+      break;
     }
-}
 
-/* ==========================
-          MODALES
-========================== */
-async function handleModals(interaction) {
-    switch (interaction.customId) {
-        default:
-            return interaction.reply({
-                content: "❌ Formulario desconocido.",
-                ephemeral: true
-            });
+    case "ticket_accept":
+      return interaction.reply({ content: "✅ Ticket aceptado.", ephemeral: true });
+
+    case "ticket_reject":
+    case "ticket_close": {
+      await interaction.channel.delete().catch(() => {});
+      break;
     }
+
+    default:
+      return interaction.reply({ content: "❌ Botón desconocido.", ephemeral: true });
+  }
 }
 
 /* ==========================
       SLASH COMMANDS
 ========================== */
 async function handleSlashCommands(interaction, client) {
-    console.log("Comando recibido:", interaction.commandName);
+  console.log("Comando recibido:", interaction.commandName);
 
-    switch (interaction.commandName) {
-        case "setchanneltickets": {
-            if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return interaction.reply({
-                    content: "❌ Solo los administradores pueden usar este comando.",
-                    ephemeral: true
-                });
-            }
-
-            const row = new ActionRowBuilder().addComponents(
-                new ChannelSelectMenuBuilder()
-                    .setCustomId("set_tickets_channel")
-                    .setPlaceholder("Selecciona el canal de tickets")
-                    .setChannelTypes(ChannelType.GuildText)
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            );
-
-            const currentChannel = config.channels?.[interaction.guild.id]?.tickets;
-
-            return interaction.reply({
-                content: currentChannel
-                    ? `📍 Canal actual:\n<#${currentChannel}>\n\nSelecciona otro canal si deseas cambiarlo.`
-                    : "🎫 Selecciona el canal donde se enviará el panel de tickets.",
-                components: [row],
-                ephemeral: true
-            });
-        }
-
-        case "setchannelanuncios":
-            return placeholder(interaction, "📢 Configuración de anuncios en desarrollo.");
-
-        case "setchannelcastigos":
-            return placeholder(interaction, "⚠️ Configuración de castigos en desarrollo.");
-
-        case "setchannelbienvenidas":
-            return placeholder(interaction, "👋 Configuración de bienvenidas en desarrollo.");
-
-        case "setchanneldespedidas":
-            return placeholder(interaction, "📤 Configuración de despedidas en desarrollo.");
-
-        case "setchannelalianzas":
-            return placeholder(interaction, "🤝 Configuración de alianzas en desarrollo.");
-
-        case "setchannelboost":
-            return placeholder(interaction, "🚀 Configuración de boosts en desarrollo.");
-
-        case "ticket":
-            return placeholder(interaction, "🎫 Sistema de tickets en desarrollo.");
-
-        case "createhuman":
-            return placeholder(interaction, "👤 Contador de usuarios en desarrollo.");
-
-        case "createbot":
-            return placeholder(interaction, "🤖 Contador de bots en desarrollo.");
-
-        case "castigar":
-            return placeholder(interaction, "⚠️ Sistema de castigos en desarrollo.");
-
-        case "anuncio":
-            return placeholder(interaction, "📢 Sistema de anuncios en desarrollo.");
-
-        case "alianza":
-            return placeholder(interaction, "🤝 Sistema de alianzas en desarrollo.");
-
-        default:
-            return interaction.reply({
-                content: "❌ Comando desconocido.",
-                ephemeral: true
-            });
+  switch (interaction.commandName) {
+    case "anuncio": {
+      const mensaje = interaction.options.getString("mensaje");
+      const canalId = config.channels?.[interaction.guild.id]?.anuncios;
+      if (!canalId) return placeholder(interaction, "📢 No hay canal de anuncios configurado.");
+      const canal = interaction.guild.channels.cache.get(canalId);
+      await canal.send(`📢 **Anuncio oficial:**\n${mensaje}`);
+      return interaction.reply({ content: "✅ Anuncio enviado.", ephemeral: true });
     }
-}
+
+    case "alianza": {
+      const servidor = interaction.options.getString("servidor");
+      const descripcion = interaction.options.getString("descripcion");
+      const canalId = config.channels?.[interaction.guild.id]?.alianzas;
+      if (!canalId) return placeholder(interaction, "🤝 No hay canal de alianzas configurado.");
+      const canal = interaction.guild.channels.cache.get(canalId);
+      await canal.send(`🤝 Nueva alianza con **${servidor}**\n${descripcion}`);
+      return interaction.reply({ content: "✅ Alianza registrada.", ephemeral: true });
+    }
+
+    case "castigar": {
+      const usuario = interaction.options.getUser("usuario");
+      const castigo = interaction.options.getString("castigo");
+      const canalId = config.channels?.[interaction.guild.id]?.castigos;
+      if (!canalId) return placeholder(interaction, "⚠️ No hay canal de castigos configurado.");
+      const canal = interaction.guild.channels.cache.get(canalId);
+      await canal.send(`⚠️ Sentencia aplicada a ${usuario}: ${castigo}`);
+      return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
+    }
+
+    case "createhuman": {
+      const members = await interaction.guild.members.fetch();
+      const humans = members.filter(m => !m.user.bot).size;
+      let category = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status");
+      if (!category) category = await interaction.guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
+      const ch = await interaction.guild.channels.create({
+        name: `👤 Exploradores: ${humans}`,
+        type: ChannelType.GuildVoice,
+        parent: category.id,
+        permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
+      });
+      config.counters.users = ch.id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Contador de humanos creado.", ephemeral: true });
+    }
+
+    case "createbot": {
+      const members = await interaction.guild.members.fetch();
+      const bots = members.filter(m => m.user.bot).size;
+      let category = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status");
+      if (!category) category = await interaction.guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
+      const ch = await interaction.guild.channels.create({
+        name: `🤖 Unidades: ${bots}`,
+        type: ChannelType.GuildVoice,
+        parent: category.id,
+        permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
+      });
+      config.counters.bots = ch.id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Contador de bots creado.", ephemeral: true });
+    }
+
+    case "setchanneltikets":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].tickets = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de tickets configurado.", ephemeral: true });
+
+    case "settoptop":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].tops = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de tops configurado.", ephemeral: true });
+
+    case "setchannelanuncios":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].anuncios = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
+
+    case "setchannelcastigos":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].castigos = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
+
+    case "setchannelbienvenidas":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].bienvenidas = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de bienvenidas configurado.", ephemeral: true });
+
+    case "
