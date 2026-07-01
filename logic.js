@@ -183,11 +183,48 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Contador de bots creado.", ephemeral: true });
     }
 
-    case "setchanneltikets":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].tickets = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de tickets configurado.", ephemeral: true });
+ case "setchanneltikets": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({
+      content: "❌ Solo los administradores pueden usar este comando.",
+      ephemeral: true
+    });
+  }
+
+  // Guardar canal en config
+  config.channels[interaction.guild.id] ??= {};
+  const canal = interaction.options.getChannel("canal");
+  config.channels[interaction.guild.id].tickets = canal.id;
+  saveConfig();
+
+  // Embed del panel de tickets
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle("🎫 Sistema de Tickets")
+    .setDescription(
+      "¿Necesitas ayuda?\n\n" +
+      "Pulsa el botón de abajo para abrir un ticket.\n\n" +
+      "Nuestro equipo te atenderá lo antes posible."
+    )
+    .setFooter({ text: "Gaburon • Sistema de Tickets" });
+
+  // Botón para crear ticket
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_create")
+      .setEmoji("🎫")
+      .setLabel("Crear Ticket")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  // Enviar panel al canal configurado
+  await canal.send({ embeds: [embed], components: [row] });
+
+  return interaction.reply({
+    content: `✅ Canal de tickets configurado correctamente.\n\n📍 Canal: <#${canal.id}>\n\nEl panel de tickets fue enviado.`,
+    ephemeral: true
+  });
+}
 
     case "settoptop":
       config.channels[interaction.guild.id] ??= {};
