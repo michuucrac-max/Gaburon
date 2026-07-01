@@ -237,9 +237,3 @@ async function handleSlashCommands(interaction, client) {
     default:
       return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
   }
-}
-
-/* ==========================
-          EXPORTS
-========================== */
-export { config, saveConfig, ensureCounterChannel, executeLogic };
