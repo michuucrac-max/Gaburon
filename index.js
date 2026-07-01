@@ -95,6 +95,36 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 /* =====================
+AUTO-UPDATE COUNTERS
+===================== */
+async function updateCounters(guild) {
+  try {
+    const members = await guild.members.fetch();
+    const humans = members.filter(m => !m.user.bot).size;
+    const bots = members.filter(m => m.user.bot).size;
+
+    if (config.counters.users) {
+      const ch = guild.channels.cache.get(config.counters.users);
+      if (ch) await ch.setName(`👤 Exploradores: ${humans}`);
+    }
+    if (config.counters.bots) {
+      const ch = guild.channels.cache.get(config.counters.bots);
+      if (ch) await ch.setName(`🤖 Unidades: ${bots}`);
+    }
+  } catch (err) {
+    console.error("Error actualizando contadores:", err);
+  }
+}
+
+client.on(Events.GuildMemberAdd, async member => {
+  await updateCounters(member.guild);
+});
+
+client.on(Events.GuildMemberRemove, async member => {
+  await updateCounters(member.guild);
+});
+
+/* =====================
 LOGIN
 ===================== */
 client.login(TOKEN).catch(err => console.error("Error login Gaburon:", err));
