@@ -177,6 +177,7 @@ case "createhuman": {
   // Buscar canal ya guardado
   let ch = interaction.guild.channels.cache.get(config.counters.humans);
   if (!ch) {
+    // Si no existe, lo creamos y guardamos
     ch = await interaction.guild.channels.create({
       name: `👤 Humanos: ${humans}`,
       type: ChannelType.GuildVoice,
@@ -188,10 +189,11 @@ case "createhuman": {
     config.counters.humans = ch.id;
     saveConfig();
   } else {
+    // Si ya existe, solo lo renombramos
     await ch.setName(`👤 Humanos: ${humans}`);
   }
 
-  return interaction.reply({ content: "✅ Contador de humanos creado/actualizado.", ephemeral: true });
+  return interaction.reply({ content: "✅ Contador de humanos actualizado.", ephemeral: true });
 }
 
 case "createbot": {
@@ -212,6 +214,7 @@ case "createbot": {
   // Buscar canal ya guardado
   let ch = interaction.guild.channels.cache.get(config.counters.bots);
   if (!ch) {
+    // Si no existe, lo creamos y guardamos
     ch = await interaction.guild.channels.create({
       name: `🤖 Bots: ${bots}`,
       type: ChannelType.GuildVoice,
@@ -223,10 +226,11 @@ case "createbot": {
     config.counters.bots = ch.id;
     saveConfig();
   } else {
+    // Si ya existe, solo lo renombramos
     await ch.setName(`🤖 Bots: ${bots}`);
   }
 
-  return interaction.reply({ content: "✅ Contador de bots creado/actualizado.", ephemeral: true });
+  return interaction.reply({ content: "✅ Contador de bots actualizado.", ephemeral: true });
 }
                       
     case "settoptop":
