@@ -157,73 +157,74 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
-    case "createhuman": {
-      const members = await interaction.guild.members.fetch();
-      const humans = members.filter(m => !m.user.bot).size;
-      const ch = await interaction.guild.channels.create({
-        name: `👤 Exploradores: ${humans}`,
-        type: ChannelType.GuildVoice,
-        permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
-      });
-      config.counters.users = ch.id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Contador de humanos creado.", ephemeral: true });
-    }
+  case "createhuman": {
+  const members = await interaction.guild.members.fetch();
+  const humans = members.filter(m => !m.user.bot).size;
 
-    case "createbot": {
-      const members = await interaction.guild.members.fetch();
-      const bots = members.filter(m => m.user.bot).size;
-      const ch = await interaction.guild.channels.create({
-        name: `🤖 Unidades: ${bots}`,
-        type: ChannelType.GuildVoice,
-        permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
-      });
-      config.counters.bots = ch.id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Contador de bots creado.", ephemeral: true });
-    }
-
- case "setchanneltikets": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({
-      content: "❌ Solo los administradores pueden usar este comando.",
-      ephemeral: true
+  // Buscar o crear categoría "Status"
+  let category = interaction.guild.channels.cache.find(
+    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
+  );
+  if (!category) {
+    category = await interaction.guild.channels.create({
+      name: "Status",
+      type: ChannelType.GuildCategory
     });
   }
 
-  // Guardar canal en config
-  config.channels[interaction.guild.id] ??= {};
-  const canal = interaction.options.getChannel("canal");
-  config.channels[interaction.guild.id].tickets = canal.id;
-  saveConfig();
+  // Crear canal de voz bloqueado
+  let ch = guild.channels.cache.get(config.counters.humans);
+  if (!ch) {
+    ch = await interaction.guild.channels.create({
+      name: `👤 Humanos: ${humans}`,
+      type: ChannelType.GuildVoice,
+      parent: category.id,
+      permissionOverwrites: [
+        { id: interaction.guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
+      ]
+    });
+    config.counters.humans = ch.id;
+    saveConfig();
+  } else {
+    await ch.setName(`👤 Humanos: ${humans}`);
+  }
 
-  // Embed del panel de tickets
-  const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle("🎫 Sistema de Tickets")
-    .setDescription(
-      "¿Necesitas ayuda?\n\n" +
-      "Pulsa el botón de abajo para abrir un ticket.\n\n" +
-      "Nuestro equipo te atenderá lo antes posible."
-    )
-    .setFooter({ text: "Gaburon • Sistema de Tickets" });
+  return interaction.reply({ content: "✅ Contador de humanos creado/actualizado.", ephemeral: true });
+}
 
-  // Botón para crear ticket
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_create")
-      .setEmoji("🎫")
-      .setLabel("Crear Ticket")
-      .setStyle(ButtonStyle.Primary)
+case "createbot": {
+  const members = await interaction.guild.members.fetch();
+  const bots = members.filter(m => m.user.bot).size;
+
+  // Buscar o crear categoría "Status"
+  let category = interaction.guild.channels.cache.find(
+    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
   );
+  if (!category) {
+    category = await interaction.guild.channels.create({
+      name: "Status",
+      type: ChannelType.GuildCategory
+    });
+  }
 
-  // Enviar panel al canal configurado
-  await canal.send({ embeds: [embed], components: [row] });
+  // Crear canal de voz bloqueado
+  let ch = guild.channels.cache.get(config.counters.bots);
+  if (!ch) {
+    ch = await interaction.guild.channels.create({
+      name: `🤖 Bots: ${bots}`,
+      type: ChannelType.GuildVoice,
+      parent: category.id,
+      permissionOverwrites: [
+        { id: interaction.guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
+      ]
+    });
+    config.counters.bots = ch.id;
+    saveConfig();
+  } else {
+    await ch.setName(`🤖 Bots: ${bots}`);
+  }
 
-  return interaction.reply({
-    content: `✅ Canal de tickets configurado correctamente.\n\n📍 Canal: <#${canal.id}>\n\nEl panel de tickets fue enviado.`,
-    ephemeral: true
-  });
+  return interaction.reply({ content: "✅ Contador de bots creado/actualizado.", ephemeral: true });
 }
 
     case "settoptop":
