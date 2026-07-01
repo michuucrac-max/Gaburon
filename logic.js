@@ -174,10 +174,11 @@ case "createhuman": {
     });
   }
 
-  // Buscar canal ya guardado
-  let ch = interaction.guild.channels.cache.get(config.counters.humans);
+  // Buscar canal guardado
+  let ch = config.counters.humans ? interaction.guild.channels.cache.get(config.counters.humans) : null;
+
   if (!ch) {
-    // Si no existe, lo creamos y guardamos
+    // Crear solo si no existe
     ch = await interaction.guild.channels.create({
       name: `👤 Humanos: ${humans}`,
       type: ChannelType.GuildVoice,
@@ -189,7 +190,6 @@ case "createhuman": {
     config.counters.humans = ch.id;
     saveConfig();
   } else {
-    // Si ya existe, solo lo renombramos
     await ch.setName(`👤 Humanos: ${humans}`);
   }
 
@@ -211,10 +211,11 @@ case "createbot": {
     });
   }
 
-  // Buscar canal ya guardado
-  let ch = interaction.guild.channels.cache.get(config.counters.bots);
+  // Buscar canal guardado
+  let ch = config.counters.bots ? interaction.guild.channels.cache.get(config.counters.bots) : null;
+
   if (!ch) {
-    // Si no existe, lo creamos y guardamos
+    // Crear solo si no existe
     ch = await interaction.guild.channels.create({
       name: `🤖 Bots: ${bots}`,
       type: ChannelType.GuildVoice,
@@ -226,7 +227,6 @@ case "createbot": {
     config.counters.bots = ch.id;
     saveConfig();
   } else {
-    // Si ya existe, solo lo renombramos
     await ch.setName(`🤖 Bots: ${bots}`);
   }
 
