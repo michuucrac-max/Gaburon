@@ -157,7 +157,7 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
-  case "createhuman": {
+ case "createhuman": {
   const members = await interaction.guild.members.fetch();
   const humans = members.filter(m => !m.user.bot).size;
 
@@ -172,8 +172,8 @@ async function handleSlashCommands(interaction, client) {
     });
   }
 
-  // Crear canal de voz bloqueado
-  let ch = guild.channels.cache.get(config.counters.humans);
+  // HUMANS
+  let ch = interaction.guild.channels.cache.get(config.counters.humans);
   if (!ch) {
     ch = await interaction.guild.channels.create({
       name: `👤 Humanos: ${humans}`,
@@ -207,8 +207,8 @@ case "createbot": {
     });
   }
 
-  // Crear canal de voz bloqueado
-  let ch = guild.channels.cache.get(config.counters.bots);
+  // BOTS
+  let ch = interaction.guild.channels.cache.get(config.counters.bots);
   if (!ch) {
     ch = await interaction.guild.channels.create({
       name: `🤖 Bots: ${bots}`,
