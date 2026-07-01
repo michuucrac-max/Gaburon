@@ -72,7 +72,6 @@ export async function executeLogic(interaction, client) {
 async function handleButtons(interaction) {
   switch (interaction.customId) {
     case "ticket_create": {
-      // Buscar o crear categoría Administración
       let category = interaction.guild.channels.cache.find(
         c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "administracion"
       );
@@ -83,7 +82,6 @@ async function handleButtons(interaction) {
         });
       }
 
-      // Crear canal privado para el ticket
       const ticketChannel = await interaction.guild.channels.create({
         name: `🎫 ticket-${interaction.user.username}`,
         type: ChannelType.GuildText,
@@ -94,7 +92,6 @@ async function handleButtons(interaction) {
         ]
       });
 
-      // Embed inicial en el canal del ticket
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle("🎫 Ticket creado")
@@ -107,17 +104,7 @@ async function handleButtons(interaction) {
       );
 
       await ticketChannel.send({ embeds: [embed], components: [row] });
-
-      await interaction.reply({
-        content: `✅ Ticket creado en <#${ticketChannel.id}>`,
-        ephemeral: true
-      });
-
-      // Notificar a administradores
-      const adminRole = interaction.guild.roles.cache.find(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
-      if (adminRole) {
-        await ticketChannel.send(`🔔 <@&${adminRole.id}> nuevo ticket creado por ${interaction.user}`);
-      }
+      await interaction.reply({ content: `✅ Ticket creado en <#${ticketChannel.id}>`, ephemeral: true });
       break;
     }
 
@@ -125,10 +112,9 @@ async function handleButtons(interaction) {
       return interaction.reply({ content: "✅ Ticket aceptado.", ephemeral: true });
 
     case "ticket_reject":
-    case "ticket_close": {
+    case "ticket_close":
       await interaction.channel.delete().catch(() => {});
       break;
-    }
 
     default:
       return interaction.reply({ content: "❌ Botón desconocido.", ephemeral: true });
@@ -174,12 +160,9 @@ async function handleSlashCommands(interaction, client) {
     case "createhuman": {
       const members = await interaction.guild.members.fetch();
       const humans = members.filter(m => !m.user.bot).size;
-      let category = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status");
-      if (!category) category = await interaction.guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
       const ch = await interaction.guild.channels.create({
         name: `👤 Exploradores: ${humans}`,
         type: ChannelType.GuildVoice,
-        parent: category.id,
         permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
       });
       config.counters.users = ch.id;
@@ -190,12 +173,9 @@ async function handleSlashCommands(interaction, client) {
     case "createbot": {
       const members = await interaction.guild.members.fetch();
       const bots = members.filter(m => m.user.bot).size;
-      let category = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status");
-      if (!category) category = await interaction.guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
       const ch = await interaction.guild.channels.create({
         name: `🤖 Unidades: ${bots}`,
         type: ChannelType.GuildVoice,
-        parent: category.id,
         permissionOverwrites: [{ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] }]
       });
       config.counters.bots = ch.id;
@@ -233,4 +213,25 @@ async function handleSlashCommands(interaction, client) {
       saveConfig();
       return interaction.reply({ content: "✅ Canal de bienvenidas configurado.", ephemeral: true });
 
-    case "
+    case "setchanneldespedidas":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].despedidas = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de despedidas configurado.", ephemeral: true });
+
+    case "setchannelalianzas":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].alianzas = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de alianzas configurado.", ephemeral: true });
+
+    case "setchannelboost":
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].boost = interaction.options.getChannel("canal").id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de boost configurado.", ephemeral: true });
+
+    default:
+      return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
+  }
+}
