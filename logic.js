@@ -11,6 +11,8 @@ import {
   ButtonStyle
 } from "discord.js";
 
+export { config, saveConfig };
+
 /* ==========================
            RUTAS
 ========================== */
