@@ -2,6 +2,10 @@
           IMPORTS
 ========================== */
 
+import fs from "fs";
+import http from "http";
+import express from "express";
+
 import {
     Client,
     GatewayIntentBits,
@@ -10,10 +14,6 @@ import {
     Routes,
     SlashCommandBuilder
 } from "discord.js";
-
-import fs from "fs";
-import express from "express";
-import http from "http";
 
 import { executeLogic } from "./logic.js";
 
@@ -34,8 +34,11 @@ const client = new Client({
     intents: [
 
         GatewayIntentBits.Guilds,
+
         GatewayIntentBits.GuildMembers,
+
         GatewayIntentBits.GuildMessages,
+
         GatewayIntentBits.MessageContent
 
     ]
@@ -43,26 +46,26 @@ const client = new Client({
 });
 
 /* ==========================
-        EXPRESS SERVER
+           EXPRESS
 ========================== */
 
 const app = express();
 
 app.get("/", (_, res) => {
 
-    res.send("🛡️ Gaburon está en línea.");
+    res.send("Gaburon operativo.");
 
 });
 
 app.get("/ping", (_, res) => {
 
-    res.send("pong");
+    res.send("OK");
 
 });
 
 app.listen(PORT, () => {
 
-    console.log(`🌐 Servidor iniciado en el puerto ${PORT}`);
+    console.log(`🌐 Servidor iniciado (${PORT})`);
 
 });
 
@@ -77,7 +80,7 @@ setInterval(() => {
 }, 1000 * 60 * 5);
 
 /* ==========================
-     REGISTRO DE COMANDOS
+        CARGAR CMD.JSON
 ========================== */
 
 const cmdData = JSON.parse(
@@ -96,7 +99,7 @@ for (const cmd of cmdData) {
 
         .setDescription(cmd.description);
 
-    if (Array.isArray(cmd.options)) {
+    if (cmd.options) {
 
         for (const option of cmd.options) {
 
@@ -105,10 +108,15 @@ for (const cmd of cmdData) {
                 case "string":
 
                     builder.addStringOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -116,10 +124,15 @@ for (const cmd of cmdData) {
                 case "user":
 
                     builder.addUserOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -127,10 +140,15 @@ for (const cmd of cmdData) {
                 case "channel":
 
                     builder.addChannelOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -138,10 +156,15 @@ for (const cmd of cmdData) {
                 case "boolean":
 
                     builder.addBooleanOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -149,10 +172,15 @@ for (const cmd of cmdData) {
                 case "integer":
 
                     builder.addIntegerOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -160,10 +188,15 @@ for (const cmd of cmdData) {
                 case "number":
 
                     builder.addNumberOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -171,10 +204,15 @@ for (const cmd of cmdData) {
                 case "role":
 
                     builder.addRoleOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -182,10 +220,15 @@ for (const cmd of cmdData) {
                 case "mentionable":
 
                     builder.addMentionableOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -193,10 +236,15 @@ for (const cmd of cmdData) {
                 case "attachment":
 
                     builder.addAttachmentOption(o =>
+
                         o
+
                             .setName(option.name)
+
                             .setDescription(option.description)
+
                             .setRequired(option.required)
+
                     );
 
                     break;
@@ -210,10 +258,6 @@ for (const cmd of cmdData) {
     commands.push(builder);
 
 }
-
-/* ==========================
-            REST
-========================== */
 
 const rest = new REST({
 
@@ -229,9 +273,9 @@ client.once(Events.ClientReady, async () => {
 
     console.clear();
 
-    console.log("===================================");
-
+    console.log("========================================");
     console.log("🛡️ Iniciando Gaburon...");
+    console.log("========================================");
 
     try {
 
@@ -247,11 +291,9 @@ client.once(Events.ClientReady, async () => {
 
         );
 
-        console.log(`✅ Conectado como ${client.user.tag}`);
-
-        console.log(`📦 ${commands.length} comandos registrados.`);
-
-        console.log("===================================");
+        console.log(`✅ Bot conectado: ${client.user.tag}`);
+        console.log(`📦 Comandos registrados: ${commands.length}`);
+        console.log("========================================");
 
     }
 
@@ -289,6 +331,8 @@ client.on(
 
         catch (err) {
 
+            console.error("❌ Error en una interacción:");
+
             console.error(err);
 
             if (
@@ -303,7 +347,7 @@ client.on(
 
                 await interaction.reply({
 
-                    content: "❌ Ocurrió un error interno.",
+                    content: "❌ Ocurrió un error interno al ejecutar esta interacción.",
 
                     ephemeral: true
 
@@ -321,10 +365,22 @@ client.on(
             LOGIN
 ========================== */
 
-client.login(TOKEN).catch(err => {
+client.login(TOKEN)
 
-    console.error("❌ Error al iniciar sesión:");
+    .then(() => {
 
-    console.error(err);
+        console.log("🔑 Login realizado correctamente.");
 
-});
+    })
+
+    .catch(err => {
+
+        console.error("❌ Error iniciando sesión:");
+
+        console.error(err);
+
+    });
+
+/* ==========================
+             FIN
+========================== */
