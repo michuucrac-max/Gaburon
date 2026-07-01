@@ -281,29 +281,47 @@ async function handleSlashCommands(interaction, client) {
       saveConfig();
       return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
 
-    case "setchannelbienvenidas":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].bienvenidas = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de bienvenidas configurado.", ephemeral: true });
+   case "setchannelbienvenidas": {
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
 
-    case "setchanneldespedidas":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].despedidas = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de despedidas configurado.", ephemeral: true });
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].bienvenidas = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
+  saveConfig();
+
+  return interaction.reply({ content: "✅ Canal y plantilla de bienvenida configurados.", ephemeral: true });
+}
+
+case "setchanneldespedidas": {
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].despedidas = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].despedidasMessage = mensaje;
+  saveConfig();
+
+  return interaction.reply({ content: "✅ Canal y plantilla de despedida configurados.", ephemeral: true });
+}
+
+case "setchannelboost": {
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].boost = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].boostMessage = mensaje;
+  saveConfig();
+
+  return interaction.reply({ content: "✅ Canal y plantilla de boost configurados.", ephemeral: true });
+}
 
     case "setchannelalianzas":
       config.channels[interaction.guild.id] ??= {};
       config.channels[interaction.guild.id].alianzas = interaction.options.getChannel("canal").id;
       saveConfig();
       return interaction.reply({ content: "✅ Canal de alianzas configurado.", ephemeral: true });
-
-    case "setchannelboost":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].boost = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de boost configurado.", ephemeral: true });
 
     default:
       return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
