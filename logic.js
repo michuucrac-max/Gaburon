@@ -1,317 +1,228 @@
 /* ==========================
           IMPORTS
 ========================== */
+
 import fs from "fs";
+import http from "http";
+import express from "express";
+
 import {
-  ChannelType,
-  PermissionsBitField,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
+    Client,
+    GatewayIntentBits,
+    Events,
+    REST,
+    Routes,
+    SlashCommandBuilder
 } from "discord.js";
 
-/* ==========================
-           RUTAS
-========================== */
-const CONFIG_PATH = "./config.json";
+import { executeLogic, ensureCounterChannel, config } from "./logic.js";
 
 /* ==========================
            CONFIG
 ========================== */
-let config = { channels: {}, counters: {} };
-loadConfig();
+
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const PORT = process.env.PORT || 3000;
 
 /* ==========================
-        CONFIG.JSON
+           CLIENT
 ========================== */
-function loadConfig() {
-  if (!fs.existsSync(CONFIG_PATH)) {
-    saveConfig();
-    return;
-  }
-  try {
-    config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-  } catch {
-    console.log("⚠️ config.json corrupto. Restaurando...");
-    config = { channels: {}, counters: {} };
-    saveConfig();
-  }
-  config.channels ??= {};
-  config.counters ??= {};
-}
 
-function saveConfig() {
-  try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 4), "utf8");
-    console.log("✅ config.json guardado correctamente");
-  } catch (err) {
-    console.error("❌ Error guardando config.json:", err);
-  }
-}
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
 
 /* ==========================
-       FUNCIONES
+           EXPRESS
 ========================== */
-function placeholder(interaction, text) {
-  return interaction.reply({ content: text, ephemeral: true });
-}
+
+const app = express();
+
+app.get("/", (_, res) => {
+    res.send("Gaburon operativo.");
+});
+
+app.get("/ping", (_, res) => {
+    res.send("OK");
+});
+
+app.listen(PORT, () => {
+    console.log(`🌐 Servidor iniciado (${PORT})`);
+});
 
 /* ==========================
-   FUNCIONES DE CONTADORES
+         KEEP ALIVE
 ========================== */
 
-/**
- * Garantiza que exista un canal contador para la guild y la clave dada.
- * - key: "humans" o "bots"
- * - label: texto visible (ej: "👤 Humanos")
- * - count: número actual
- *
- * Guarda IDs en config.counters[guild.id][key]
- */
-export async function ensureCounterChannel(guild, key, label, count) {
-  try {
-    // Asegurar estructura por guild
-    config.counters ??= {};
-    config.counters[guild.id] ??= {};
-    config.counters[guild.id][key] ??= null;
+setInterval(() => {
+    http.get(`http://localhost:${PORT}/ping`).on("error", () => {});
+}, 1000 * 60 * 5);
 
-    // 1) Intentar obtener por ID guardado (fetch para comprobar existencia real)
-    let ch = null;
-    const savedId = config.counters[guild.id][key];
-    if (savedId) {
-      try {
-        ch = await guild.channels.fetch(savedId);
-      } catch (err) {
-        ch = null;
-      }
+/* ==========================
+        CARGAR CMD.JSON
+========================== */
+
+const cmdData = JSON.parse(fs.readFileSync("./cmd.json", "utf8"));
+const commands = [];
+
+for (const cmd of cmdData) {
+    const builder = new SlashCommandBuilder()
+        .setName(cmd.name)
+        .setDescription(cmd.description);
+
+    if (cmd.options) {
+        for (const option of cmd.options) {
+            switch (option.type) {
+                case "string":
+                    builder.addStringOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "user":
+                    builder.addUserOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "channel":
+                    builder.addChannelOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "boolean":
+                    builder.addBooleanOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "integer":
+                    builder.addIntegerOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "number":
+                    builder.addNumberOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "role":
+                    builder.addRoleOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "mentionable":
+                    builder.addMentionableOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+                case "attachment":
+                    builder.addAttachmentOption(o =>
+                        o.setName(option.name).setDescription(option.description).setRequired(option.required)
+                    );
+                    break;
+            }
+        }
     }
 
-    // 2) Buscar o crear categoría "Status"
-    let category = guild.channels.cache.find(
-      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-    );
-    if (!category) {
-      try {
-        category = await guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
-        console.log(`Categoria Status creada en guild ${guild.id} (${category.id})`);
-      } catch (err) {
-        console.error("Error creando categoría Status:", err);
-      }
-    }
+    commands.push(builder);
+}
 
-    // 3) Si no existe por ID, intentar encontrar un canal existente en la categoría con el prefijo label
-    if (!ch && category) {
-      const possible = guild.channels.cache
-        .filter(c => c.parentId === category.id && c.type === ChannelType.GuildVoice && c.name.startsWith(label))
-        .first();
-      if (possible) {
-        ch = possible;
-        config.counters[guild.id][key] = ch.id;
-        saveConfig();
-        console.log(`Reutilizando canal existente para ${key} en guild ${guild.id}: ${ch.id}`);
-      }
-    }
+const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-    // 4) Si sigue sin existir, crear y guardar
-    if (!ch) {
-      try {
-        ch = await guild.channels.create({
-          name: `${label}: ${count}`,
-          type: ChannelType.GuildVoice,
-          parent: category ? category.id : undefined,
-          permissionOverwrites: [
-            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
-          ]
-        });
-        config.counters[guild.id][key] = ch.id;
-        saveConfig();
-        console.log(`Canal contador creado para ${key} en guild ${guild.id}: ${ch.id}`);
-        return;
-      } catch (err) {
-        console.error("Error creando canal contador:", err);
-        return;
-      }
-    }
+/* ==========================
+            READY
+========================== */
 
-    // 5) Si existe, renombrar con el nuevo conteo
+client.once(Events.ClientReady, async () => {
+    console.clear();
+    console.log("========================================");
+    console.log("🛡️ Iniciando Gaburon...");
+    console.log("========================================");
+
     try {
-      await ch.setName(`${label}: ${count}`);
-      console.log(`Canal ${key} renombrado en guild ${guild.id}: ${ch.id} -> ${label}: ${count}`);
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+
+        console.log(`✅ Bot conectado: ${client.user.tag}`);
+        console.log(`📦 Comandos registrados: ${commands.length}`);
+        console.log("========================================");
+
+        // Actualizar contadores al iniciar en todas las guilds
+        for (const guild of client.guilds.cache.values()) {
+            try {
+                await updateCounters(guild);
+            } catch (err) {
+                console.error(`Error actualizando contadores en guild ${guild.id}:`, err);
+            }
+        }
     } catch (err) {
-      console.error("Error renombrando canal contador:", err);
+        console.error("❌ Error registrando comandos:");
+        console.error(err);
     }
-  } catch (err) {
-    console.error("ensureCounterChannel error:", err);
-  }
+});
+
+/* ==========================
+        INTERACCIONES
+========================== */
+
+client.on(Events.InteractionCreate, async interaction => {
+    try {
+        await executeLogic(interaction, client);
+    } catch (err) {
+        console.error("❌ Error en una interacción:");
+        console.error(err);
+
+        if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: "❌ Ocurrió un error interno al ejecutar esta interacción.",
+                ephemeral: true
+            });
+        }
+    }
+});
+
+/* ==========================
+   EVENTOS AUTOMÁTICOS
+========================== */
+
+client.on("guildMemberAdd", member => {
+    updateCounters(member.guild).catch(err => console.error("guildMemberAdd updateCounters:", err));
+});
+
+client.on("guildMemberRemove", member => {
+    updateCounters(member.guild).catch(err => console.error("guildMemberRemove updateCounters:", err));
+});
+
+async function updateCounters(guild) {
+    try {
+        const members = await guild.members.fetch();
+        const humans = members.filter(m => !m.user.bot).size;
+        const bots = members.filter(m => m.user.bot).size;
+
+        // Reutiliza la función de logic.js para crear/actualizar y guardar IDs
+        await ensureCounterChannel(guild, "humans", "👤 Humanos", humans);
+        await ensureCounterChannel(guild, "bots", "🤖 Bots", bots);
+    } catch (err) {
+        console.error("updateCounters error:", err);
+    }
 }
 
 /* ==========================
-           LÓGICA
+            LOGIN
 ========================== */
-export async function executeLogic(interaction, client) {
-  if (interaction.isButton()) return handleButtons(interaction);
-  if (!interaction.isChatInputCommand()) return;
-  return handleSlashCommands(interaction, client);
-}
+
+client.login(TOKEN)
+    .then(() => {
+        console.log("🔑 Login realizado correctamente.");
+    })
+    .catch(err => {
+        console.error("❌ Error iniciando sesión:");
+        console.error(err);
+    });
 
 /* ==========================
-          BOTONES
+             FIN
 ========================== */
-async function handleButtons(interaction) {
-  switch (interaction.customId) {
-    case "ticket_create": {
-      let category = interaction.guild.channels.cache.find(
-        c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "administracion"
-      );
-      if (!category) {
-        category = await interaction.guild.channels.create({
-          name: "Administracion",
-          type: ChannelType.GuildCategory
-        });
-      }
-
-      const ticketChannel = await interaction.guild.channels.create({
-        name: `🎫 ticket-${interaction.user.username}`,
-        type: ChannelType.GuildText,
-        parent: category.id,
-        permissionOverwrites: [
-          { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
-        ]
-      });
-
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle("🎫 Ticket creado")
-        .setDescription("Un administrador revisará tu caso pronto.");
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("ticket_accept").setLabel("Aceptar").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("ticket_reject").setLabel("Rechazar").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("ticket_close").setLabel("Cerrar").setStyle(ButtonStyle.Secondary)
-      );
-
-      await ticketChannel.send({ embeds: [embed], components: [row] });
-      await interaction.reply({ content: `✅ Ticket creado en <#${ticketChannel.id}>`, ephemeral: true });
-      break;
-    }
-
-    case "ticket_accept":
-      return interaction.reply({ content: "✅ Ticket aceptado.", ephemeral: true });
-
-    case "ticket_reject":
-    case "ticket_close":
-      await interaction.channel.delete().catch(() => {});
-      break;
-
-    default:
-      return interaction.reply({ content: "❌ Botón desconocido.", ephemeral: true });
-  }
-}
-
-/* ==========================
-      SLASH COMMANDS
-========================== */
-async function handleSlashCommands(interaction, client) {
-  console.log("Comando recibido:", interaction.commandName);
-
-  switch (interaction.commandName) {
-    case "anuncio": {
-      const mensaje = interaction.options.getString("mensaje");
-      const canalId = config.channels?.[interaction.guild.id]?.anuncios;
-      if (!canalId) return placeholder(interaction, "📢 No hay canal de anuncios configurado.");
-      const canal = interaction.guild.channels.cache.get(canalId);
-      await canal.send(`📢 **Anuncio oficial:**\n${mensaje}`);
-      return interaction.reply({ content: "✅ Anuncio enviado.", ephemeral: true });
-    }
-
-    case "alianza": {
-      const servidor = interaction.options.getString("servidor");
-      const descripcion = interaction.options.getString("descripcion");
-      const canalId = config.channels?.[interaction.guild.id]?.alianzas;
-      if (!canalId) return placeholder(interaction, "🤝 No hay canal de alianzas configurado.");
-      const canal = interaction.guild.channels.cache.get(canalId);
-      await canal.send(`🤝 Nueva alianza con **${servidor}**\n${descripcion}`);
-      return interaction.reply({ content: "✅ Alianza registrada.", ephemeral: true });
-    }
-
-    case "castigar": {
-      const usuario = interaction.options.getUser("usuario");
-      const castigo = interaction.options.getString("castigo");
-      const canalId = config.channels?.[interaction.guild.id]?.castigos;
-      if (!canalId) return placeholder(interaction, "⚠️ No hay canal de castigos configurado.");
-      const canal = interaction.guild.channels.cache.get(canalId);
-      await canal.send(`⚠️ Sentencia aplicada a ${usuario}: ${castigo}`);
-      return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
-    }
-
-    case "createhuman": {
-      const members = await interaction.guild.members.fetch();
-      const humans = members.filter(m => !m.user.bot).size;
-
-      await ensureCounterChannel(interaction.guild, "humans", "👤 Humanos", humans);
-
-      return interaction.reply({ content: "✅ Contador de humanos creado/actualizado.", ephemeral: true });
-    }
-
-    case "createbot": {
-      const members = await interaction.guild.members.fetch();
-      const bots = members.filter(m => m.user.bot).size;
-
-      await ensureCounterChannel(interaction.guild, "bots", "🤖 Bots", bots);
-
-      return interaction.reply({ content: "✅ Contador de bots creado/actualizado.", ephemeral: true });
-    }
-
-    case "settoptop":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].tops = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de tops configurado.", ephemeral: true });
-
-    case "setchannelanuncios":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].anuncios = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
-
-    case "setchannelcastigos":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].castigos = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
-
-    case "setchannelbienvenidas":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].bienvenidas = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de bienvenidas configurado.", ephemeral: true });
-
-    case "setchanneldespedidas":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].despedidas = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de despedidas configurado.", ephemeral: true });
-
-    case "setchannelalianzas":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].alianzas = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de alianzas configurado.", ephemeral: true });
-
-    case "setchannelboost":
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].boost = interaction.options.getChannel("canal").id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de boost configurado.", ephemeral: true });
-
-    default:
-      return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
-  }
-}
-
-/* ==========================
-          EXPORTS
-========================== */
-export { config, saveConfig };
