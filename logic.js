@@ -411,6 +411,8 @@ async function handleModals(interaction) {
 ========================== */
 
 async function handleSlashCommands(interaction, client) {
+          
+          console.log("Comando recibido:", interaction.commandName);
 
     switch (interaction.commandName) {
 
