@@ -1,4 +1,3 @@
-// logic.js
 import {
   ChannelType,
   PermissionsBitField,
@@ -20,22 +19,28 @@ const saveConfig = () =>
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 
 // =====================
-// 📢 ANUNCIOS / 🔗 ALIANZAS / ⚠️ CASTIGOS
+// 📢 anuncio
 // =====================
 export async function anuncio(interaction) {
   return interaction.reply({ content: "Placeholder: anuncio", ephemeral: true });
 }
 
+// =====================
+// 🔗 alianza
+// =====================
 export async function alianza(interaction) {
   return interaction.reply({ content: "Placeholder: alianza", ephemeral: true });
 }
 
+// =====================
+// ⚠️ castigar
+// =====================
 export async function castigar(interaction) {
   return interaction.reply({ content: "Placeholder: castigar", ephemeral: true });
 }
 
 // =====================
-// 👤🤖 CONTADORES
+// 👤 createhuman
 // =====================
 export async function createhuman(interaction) {
   try {
@@ -66,6 +71,9 @@ export async function createhuman(interaction) {
   }
 }
 
+// =====================
+// 🤖 createbot
+// =====================
 export async function createbot(interaction) {
   try {
     const guild = interaction.guild;
@@ -96,44 +104,180 @@ export async function createbot(interaction) {
 }
 
 // =====================
-// 🎫 TICKETS
+// setchanneltikets
 // =====================
 export async function setchanneltikets(interaction) {
-  return interaction.reply({ content: "Placeholder: setchanneltikets", ephemeral: true });
+  try {
+    // Guardar canal de tickets en config
+    config.channels ??= {};
+    config.channels[interaction.guild.id] ??= {};
+    config.channels[interaction.guild.id].tickets = interaction.channel.id;
+    saveConfig();
+
+    // Banner con botón para crear ticket
+    const embed = new EmbedBuilder()
+      .setColor(0x6A4CFF)
+      .setTitle("🎫 Sistema de Tickets • Made in Abyss")
+      .setDescription(
+        "Si tienes alguna **queja, duda o sugerencia**, puedes crear un ticket.\n\n" +
+        "Un miembro de la **Administración** te atenderá lo antes posible."
+      )
+      .setImage("https://media1.tenor.com/m/yfxTAck9--UAAAAd/belaf-made-in-abyss.gif")
+      .setFooter({ text: "Belaft • Sistema de Tickets" });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ticket_create")
+        .setLabel("🎫 Crear Ticket")
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+
+    return interaction.reply({
+      content: `✅ Canal de tickets configurado: <#${interaction.channel.id}>`,
+      ephemeral: true
+    });
+  } catch (err) {
+    console.error("❌ Error configurando canal de tickets:", err);
+    return interaction.reply({
+      content: "❌ Hubo un error al configurar el canal de tickets.",
+      ephemeral: true
+    });
+  }
 }
 
-// (Aquí luego añadiremos la lógica de creación de tickets con categoría Administración)
+// =====================
+// ticket_create
+// =====================
+export async function handleTicketCreate(interaction) {
+  const guild = interaction.guild;
+
+  // Buscar o crear categoría Administración
+  let category = guild.channels.cache.find(
+    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "administracion"
+  );
+  if (!category) {
+    category = await guild.channels.create({
+      name: "Administracion",
+      type: ChannelType.GuildCategory
+    });
+  }
+
+  // Crear canal de ticket
+  const ticketChannel = await guild.channels.create({
+    name: `ticket-${interaction.user.username}`,
+    type: ChannelType.GuildText,
+    parent: category.id,
+    permissionOverwrites: [
+      { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+      { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+    ]
+  });
+
+  // Notificar al usuario directamente en el canal del ticket
+  await ticketChannel.send(`🎫 Hola ${interaction.user}, tu ticket ha sido creado. Un administrador te atenderá aquí.`);
+
+  // Notificar a administradores
+  const adminRole = guild.roles.cache.find(r => r.permissions.has("Administrator"));
+  if (adminRole) {
+    await ticketChannel.send(`📢 <@&${adminRole.id}> nuevo ticket creado por ${interaction.user}.`);
+  }
+
+  // Embed dentro del ticket con botones
+  const embed = new EmbedBuilder()
+    .setColor(0x2ecc71)
+    .setTitle("🎫 Ticket en revisión")
+    .setDescription("Un administrador revisará tu caso.\n\nUsa los botones para gestionar el ticket.");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_accept")
+      .setLabel("✅ Aceptar")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("ticket_reject")
+      .setLabel("❌ Rechazar")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId("ticket_close")
+      .setLabel("🔒 Cerrar")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  await ticketChannel.send({ embeds: [embed], components: [row] });
+
+  // Confirmación al usuario (ephemeral en el canal original)
+  await interaction.reply({
+    content: `✅ Ticket creado: <#${ticketChannel.id}>`,
+    ephemeral: true
+  });
+}
 
 // =====================
-// 🏆 TOPS
+// ticket_buttons
+// =====================
+export async function handleTicketButtons(interaction) {
+  const channel = interaction.channel;
+
+  switch (interaction.customId) {
+    case "ticket_accept":
+      await interaction.reply({ content: "✅ Ticket aceptado.", ephemeral: false });
+      break;
+
+    case "ticket_reject":
+    case "ticket_close":
+      await interaction.reply({ content: "❌ Ticket cerrado.", ephemeral: false });
+      await channel.delete().catch(() => {});
+      break;
+  }
+}
+
+// =====================
+// 🏆 settoptop
 // =====================
 export async function settoptop(interaction) {
   return interaction.reply({ content: "Placeholder: settoptop", ephemeral: true });
 }
 
 // =====================
-// ⚙️ CONFIGURACIÓN DE CANALES
+// ⚙️ setchannelanuncios
 // =====================
 export async function setchannelanuncios(interaction) {
   return interaction.reply({ content: "Placeholder: setchannelanuncios", ephemeral: true });
 }
 
+// =====================
+// ⚙️ setchannelcastigos
+// =====================
 export async function setchannelcastigos(interaction) {
   return interaction.reply({ content: "Placeholder: setchannelcastigos", ephemeral: true });
 }
 
+// =====================
+// ⚙️ setchannelbienvenidas
+// =====================
 export async function setchannelbienvenidas(interaction) {
   return interaction.reply({ content: "Placeholder: setchannelbienvenidas", ephemeral: true });
 }
 
+// =====================
+// ⚙️ setchanneldespedidas
+// =====================
 export async function setchanneldespedidas(interaction) {
   return interaction.reply({ content: "Placeholder: setchanneldespedidas", ephemeral: true });
 }
 
+// =====================
+// ⚙️ setchannelalianzas
+// =====================
 export async function setchannelalianzas(interaction) {
   return interaction.reply({ content: "Placeholder: setchannelalianzas", ephemeral: true });
 }
 
+// =====================
+// ⚙️ setchannelboost
+// =====================
 export async function setchannelboost(interaction) {
   return interaction.reply({ content: "Placeholder: setchannelboost", ephemeral: true });
 }
