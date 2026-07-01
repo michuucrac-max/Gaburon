@@ -1,0 +1,89 @@
+[
+  {
+    "name": "anuncio",
+    "description": "Emitir anuncio oficial",
+    "options": [
+      { "type": "string", "name": "mensaje", "description": "Mensaje", "required": true }
+    ]
+  },
+  {
+    "name": "alianza",
+    "description": "Registrar alianza",
+    "options": [
+      { "type": "string", "name": "servidor", "description": "Servidor", "required": true },
+      { "type": "string", "name": "descripcion", "description": "Descripción", "required": true }
+    ]
+  },
+  {
+    "name": "castigar",
+    "description": "Ejecutar sentencia del Abismo",
+    "options": [
+      { "type": "user", "name": "usuario", "description": "Entidad", "required": true },
+      { "type": "string", "name": "castigo", "description": "Tipo de castigo", "required": true }
+    ]
+  },
+  {
+    "name": "createhuman",
+    "description": "Crear contador de humanos"
+  },
+  {
+    "name": "createbot",
+    "description": "Crear contador de bots"
+  },
+  {
+    "name": "setchanneltikets",
+    "description": "Configurar canal de tickets",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Canal de tickets", "required": true }
+    ]
+  },
+  {
+    "name": "settoptop",
+    "description": "Configurar canal de tops",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Canal de tops", "required": true }
+    ]
+  },
+  {
+    "name": "setchannelanuncios",
+    "description": "Configurar canal anuncios",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  },
+  {
+    "name": "setchannelcastigos",
+    "description": "Configurar canal castigos",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  },
+  {
+    "name": "setchannelbienvenidas",
+    "description": "Configurar canal bienvenidas",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  },
+  {
+    "name": "setchanneldespedidas",
+    "description": "Configurar canal despedidas",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  },
+  {
+    "name": "setchannelalianzas",
+    "description": "Configurar canal alianzas",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  },
+  {
+    "name": "setchannelboost",
+    "description": "Configurar canal boost",
+    "options": [
+      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+    ]
+  }
+]
