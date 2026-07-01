@@ -117,13 +117,12 @@ export async function setchanneltikets(interaction) {
     // Banner con botón para crear ticket
     const embed = new EmbedBuilder()
       .setColor(0x6A4CFF)
-      .setTitle("🎫 Sistema de Tickets • Made in Abyss")
+      .setTitle("🎫 Sistema de Tickets • Gaburon")
       .setDescription(
         "Si tienes alguna **queja, duda o sugerencia**, puedes crear un ticket.\n\n" +
         "Un miembro de la **Administración** te atenderá lo antes posible."
       )
-      .setImage("https://media1.tenor.com/m/yfxTAck9--UAAAAd/belaf-made-in-abyss.gif")
-      .setFooter({ text: "Belaft • Sistema de Tickets" });
+      .setFooter({ text: "Gaburon • Sistema de Tickets" });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -175,7 +174,7 @@ export async function handleTicketCreate(interaction) {
     ]
   });
 
-  // Notificar al usuario directamente en el canal del ticket
+  // Notificar al usuario dentro del canal del ticket
   await ticketChannel.send(`🎫 Hola ${interaction.user}, tu ticket ha sido creado. Un administrador te atenderá aquí.`);
 
   // Notificar a administradores
@@ -222,12 +221,12 @@ export async function handleTicketButtons(interaction) {
 
   switch (interaction.customId) {
     case "ticket_accept":
-      await interaction.reply({ content: "✅ Ticket aceptado.", ephemeral: false });
+      await interaction.reply({ content: "✅ Ticket aceptado." });
       break;
 
     case "ticket_reject":
     case "ticket_close":
-      await interaction.reply({ content: "❌ Ticket cerrado.", ephemeral: false });
+      await interaction.reply({ content: "❌ Ticket cerrado." });
       await channel.delete().catch(() => {});
       break;
   }
