@@ -1,3 +1,4 @@
+// index.js
 import { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder } from "discord.js";
 import fs from "fs";
 import express from "express";
@@ -28,7 +29,7 @@ app.get("/", (_, res) => res.send("Gaburon operativo. Ilblu permanece protegido.
 app.get("/ping", (_, res) => res.send("Gaburon activo 🛡️"));
 app.listen(PORT, () => console.log(`🌐 Servidor activo en puerto ${PORT}`));
 
-// Render hace health checks, así que mantenemos vivo el servicio
+// Mantener vivo el servicio para Render
 setInterval(() => {
   http.get(`http://localhost:${PORT}/ping`).on("error", () => {});
 }, 5 * 60 * 1000);
