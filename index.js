@@ -187,37 +187,23 @@ client.on(Events.InteractionCreate, async interaction => {
 ========================== */
 
 client.on("guildMemberAdd", member => {
-    updateCounters(member.guild);
+  updateCounters(member.guild);
 });
 
 client.on("guildMemberRemove", member => {
-    updateCounters(member.guild);
+  updateCounters(member.guild);
 });
 
 async function updateCounters(guild) {
-    const members = await guild.members.fetch();
-    const humans = members.filter(m => !m.user.bot).size;
-    const bots = members.filter(m => m.user.bot).size;
+  const members = await guild.members.fetch();
+  const humans = members.filter(m => !m.user.bot).size;
+  const bots = members.filter(m => m.user.bot).size;
 
-    // Buscar o crear categoría "Status"
-    let category = guild.channels.cache.find(
-        c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-    );
-    if (!category) {
-        category = await guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
-    }
+  const humanChannel = guild.channels.cache.get(config.counters.humans);
+  if (humanChannel) await humanChannel.setName(`👤 Humanos: ${humans}`);
 
-    // HUMANS
-    const humanChannel = guild.channels.cache.get(config.counters.humans);
-    if (humanChannel) {
-        await humanChannel.setName(`👤 Humanos: ${humans}`);
-    }
-
-    // BOTS
-    const botChannel = guild.channels.cache.get(config.counters.bots);
-    if (botChannel) {
-        await botChannel.setName(`🤖 Bots: ${bots}`);
-    }
+  const botChannel = guild.channels.cache.get(config.counters.bots);
+  if (botChannel) await botChannel.setName(`🤖 Bots: ${bots}`);
 }
 
 /* ==========================
