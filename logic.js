@@ -11,8 +11,6 @@ import {
   ButtonStyle
 } from "discord.js";
 
-export { config, saveConfig };
-
 /* ==========================
            RUTAS
 ========================== */
@@ -57,6 +55,95 @@ function saveConfig() {
 ========================== */
 function placeholder(interaction, text) {
   return interaction.reply({ content: text, ephemeral: true });
+}
+
+/* ==========================
+   FUNCIONES DE CONTADORES
+========================== */
+
+/**
+ * Garantiza que exista un canal contador para la guild y la clave dada.
+ * - key: "humans" o "bots"
+ * - label: texto visible (ej: "👤 Humanos")
+ * - count: número actual
+ *
+ * Guarda IDs en config.counters[guild.id][key]
+ */
+export async function ensureCounterChannel(guild, key, label, count) {
+  try {
+    // Asegurar estructura por guild
+    config.counters ??= {};
+    config.counters[guild.id] ??= {};
+    config.counters[guild.id][key] ??= null;
+
+    // 1) Intentar obtener por ID guardado (fetch para comprobar existencia real)
+    let ch = null;
+    const savedId = config.counters[guild.id][key];
+    if (savedId) {
+      try {
+        ch = await guild.channels.fetch(savedId);
+      } catch (err) {
+        ch = null;
+      }
+    }
+
+    // 2) Buscar o crear categoría "Status"
+    let category = guild.channels.cache.find(
+      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
+    );
+    if (!category) {
+      try {
+        category = await guild.channels.create({ name: "Status", type: ChannelType.GuildCategory });
+        console.log(`Categoria Status creada en guild ${guild.id} (${category.id})`);
+      } catch (err) {
+        console.error("Error creando categoría Status:", err);
+      }
+    }
+
+    // 3) Si no existe por ID, intentar encontrar un canal existente en la categoría con el prefijo label
+    if (!ch && category) {
+      const possible = guild.channels.cache
+        .filter(c => c.parentId === category.id && c.type === ChannelType.GuildVoice && c.name.startsWith(label))
+        .first();
+      if (possible) {
+        ch = possible;
+        config.counters[guild.id][key] = ch.id;
+        saveConfig();
+        console.log(`Reutilizando canal existente para ${key} en guild ${guild.id}: ${ch.id}`);
+      }
+    }
+
+    // 4) Si sigue sin existir, crear y guardar
+    if (!ch) {
+      try {
+        ch = await guild.channels.create({
+          name: `${label}: ${count}`,
+          type: ChannelType.GuildVoice,
+          parent: category ? category.id : undefined,
+          permissionOverwrites: [
+            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
+          ]
+        });
+        config.counters[guild.id][key] = ch.id;
+        saveConfig();
+        console.log(`Canal contador creado para ${key} en guild ${guild.id}: ${ch.id}`);
+        return;
+      } catch (err) {
+        console.error("Error creando canal contador:", err);
+        return;
+      }
+    }
+
+    // 5) Si existe, renombrar con el nuevo conteo
+    try {
+      await ch.setName(`${label}: ${count}`);
+      console.log(`Canal ${key} renombrado en guild ${guild.id}: ${ch.id} -> ${label}: ${count}`);
+    } catch (err) {
+      console.error("Error renombrando canal contador:", err);
+    }
+  } catch (err) {
+    console.error("ensureCounterChannel error:", err);
+  }
 }
 
 /* ==========================
@@ -159,80 +246,24 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
-case "createhuman": {
-  const members = await interaction.guild.members.fetch();
-  const humans = members.filter(m => !m.user.bot).size;
+    case "createhuman": {
+      const members = await interaction.guild.members.fetch();
+      const humans = members.filter(m => !m.user.bot).size;
 
-  // Buscar o crear categoría "Status"
-  let category = interaction.guild.channels.cache.find(
-    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-  );
-  if (!category) {
-    category = await interaction.guild.channels.create({
-      name: "Status",
-      type: ChannelType.GuildCategory
-    });
-  }
+      await ensureCounterChannel(interaction.guild, "humans", "👤 Humanos", humans);
 
-  // Buscar canal guardado
-  let ch = config.counters.humans ? interaction.guild.channels.cache.get(config.counters.humans) : null;
+      return interaction.reply({ content: "✅ Contador de humanos creado/actualizado.", ephemeral: true });
+    }
 
-  if (!ch) {
-    // Crear solo si no existe
-    ch = await interaction.guild.channels.create({
-      name: `👤 Humanos: ${humans}`,
-      type: ChannelType.GuildVoice,
-      parent: category.id,
-      permissionOverwrites: [
-        { id: interaction.guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
-      ]
-    });
-    config.counters.humans = ch.id;
-    saveConfig();
-  } else {
-    await ch.setName(`👤 Humanos: ${humans}`);
-  }
+    case "createbot": {
+      const members = await interaction.guild.members.fetch();
+      const bots = members.filter(m => m.user.bot).size;
 
-  return interaction.reply({ content: "✅ Contador de humanos actualizado.", ephemeral: true });
-}
+      await ensureCounterChannel(interaction.guild, "bots", "🤖 Bots", bots);
 
-case "createbot": {
-  const members = await interaction.guild.members.fetch();
-  const bots = members.filter(m => m.user.bot).size;
+      return interaction.reply({ content: "✅ Contador de bots creado/actualizado.", ephemeral: true });
+    }
 
-  // Buscar o crear categoría "Status"
-  let category = interaction.guild.channels.cache.find(
-    c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === "status"
-  );
-  if (!category) {
-    category = await interaction.guild.channels.create({
-      name: "Status",
-      type: ChannelType.GuildCategory
-    });
-  }
-
-  // Buscar canal guardado
-  let ch = config.counters.bots ? interaction.guild.channels.cache.get(config.counters.bots) : null;
-
-  if (!ch) {
-    // Crear solo si no existe
-    ch = await interaction.guild.channels.create({
-      name: `🤖 Bots: ${bots}`,
-      type: ChannelType.GuildVoice,
-      parent: category.id,
-      permissionOverwrites: [
-        { id: interaction.guild.id, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }
-      ]
-    });
-    config.counters.bots = ch.id;
-    saveConfig();
-  } else {
-    await ch.setName(`🤖 Bots: ${bots}`);
-  }
-
-  return interaction.reply({ content: "✅ Contador de bots actualizado.", ephemeral: true });
-}
-                      
     case "settoptop":
       config.channels[interaction.guild.id] ??= {};
       config.channels[interaction.guild.id].tops = interaction.options.getChannel("canal").id;
@@ -279,3 +310,8 @@ case "createbot": {
       return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
   }
 }
+
+/* ==========================
+          EXPORTS
+========================== */
+export { config, saveConfig };
