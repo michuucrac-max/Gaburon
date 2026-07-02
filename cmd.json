@@ -80,6 +80,10 @@
     ]
   },
   {
+  "name": "infosetchannels",
+  "description": "Ver configuración de canales y cómo usar los comandos referentes"
+},
+  {
     "name": "setchannelboost",
     "description": "Configurar canal boost",
     "options": [
