@@ -50,7 +50,7 @@ function saveConfig() {
 }
 
 /* ==========================
-       FUNCIONES
+       FUNCIONES AUXILIARES
 ========================== */
 function placeholder(interaction, text) {
   return interaction.reply({ content: text, ephemeral: true });
@@ -58,23 +58,51 @@ function placeholder(interaction, text) {
 
 /* ==========================
    Helpers de plantillas
+   - Soporta {user}, {username}, {server}, {avatar}, {banner}
+   - Acepta como segundo parámetro un Member o un objeto replacements
 ========================== */
-function formatTemplate(template, member) {
+function formatTemplate(template, memberOrReplacements) {
   if (!template) return "";
-  return template
-    .replaceAll("{user}", `<@${member.id}>`)
-    .replaceAll("{username}", member.user.username)
-    .replaceAll("{server}", member.guild.name)
-    .replaceAll("{avatar}", member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? "")
-    .replaceAll("{banner}", member.user.bannerURL({ extension: "png", size: 1024 }) ?? "");
+
+  // Construir objeto replacements
+  let replacements = {};
+  if (!memberOrReplacements) {
+    replacements = {};
+  } else if (memberOrReplacements && memberOrReplacements.id && memberOrReplacements.user) {
+    // Es un GuildMember
+    const member = memberOrReplacements;
+    replacements = {
+      user: `<@${member.id}>`,
+      username: member.user.username,
+      server: member.guild?.name ?? "",
+      avatar: member.user.displayAvatarURL ? member.user.displayAvatarURL({ extension: "png", size: 1024 }) : "",
+      banner: "" // banner se puede rellenar externamente si se obtuvo
+    };
+  } else {
+    // Es un objeto con keys
+    replacements = { ...memberOrReplacements };
+  }
+
+  let out = template;
+  // Reemplazos seguros (si no existe la key, se reemplaza por cadena vacía)
+  out = out.replaceAll("{user}", replacements.user ?? "");
+  out = out.replaceAll("{username}", replacements.username ?? "");
+  out = out.replaceAll("{server}", replacements.server ?? "");
+  out = out.replaceAll("{avatar}", replacements.avatar ?? "");
+  out = out.replaceAll("{banner}", replacements.banner ?? "");
+  return out;
 }
 
+/* ==========================
+   Funciones de envío embed (con soporte {banner} y botón URL)
+========================== */
 export async function sendWelcome(member) {
   try {
-    console.log(`[welcome] trigger guild=${member.guild.id} user=${member.id}`);
+    console.log(`[welcome] trigger guild=${member.guild?.id} user=${member.id}`);
+
     const guildCfg = config.channels?.[member.guild.id] ?? {};
     const channelId = guildCfg.bienvenidas;
-    const template = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**";
+    const templateRaw = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**\n\n¡Pásala bien!";
     if (!channelId) {
       console.log("[welcome] no channel configured");
       return;
@@ -86,22 +114,56 @@ export async function sendWelcome(member) {
       return;
     }
 
-    const content = formatTemplate(template, member);
-    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
-
-    const embed = new EmbedBuilder()
-      .setColor(0x57F287)
-      .setTitle("¡Bienvenido!")
-      .setDescription(content)
-      .setTimestamp();
-
-    if (content.includes("{avatar}") || content.includes("{banner}")) {
-      // ya reemplazado en content; si contiene URL, no hace falta setImage
+    // Intentar obtener banner del usuario (fetch para asegurar datos)
+    let bannerUrl = null;
+    try {
+      const fullUser = await member.user.fetch().catch(() => member.user);
+      bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
+    } catch (e) {
+      bannerUrl = member.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
     }
 
-    if (avatarUrl) embed.setImage(avatarUrl);
+    const avatarUrl = member.user.displayAvatarURL ? member.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
 
-    await channel.send({ embeds: [embed] });
+    // Preparar replacements
+    const replacements = {
+      user: `<@${member.id}>`,
+      username: member.user.username,
+      server: member.guild?.name ?? "",
+      avatar: avatarUrl ?? "",
+      banner: bannerUrl ?? ""
+    };
+
+    const content = formatTemplate(templateRaw, replacements);
+
+    // Construir embed con estilo similar al ejemplo (título grande, subtítulo, thumbnail a la derecha)
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle(`¡Bienvenido ${member.user.username}!`)
+      .setDescription(content)
+      .setTimestamp()
+      .setThumbnail(avatarUrl ?? undefined)
+      .setFooter({ text: `${member.guild?.name ?? ""} • ¡Disfruta!` });
+
+    // Si la plantilla incluye {banner} y bannerUrl existe, usarlo como imagen grande
+    if (templateRaw.includes("{banner}") && bannerUrl) {
+      embed.setImage(bannerUrl);
+    } else if (avatarUrl) {
+      // fallback: imagen grande con avatar
+      embed.setImage(avatarUrl);
+    }
+
+    // Botón URL opcional guardado en config (bienvenidasUrl)
+    const components = [];
+    const url = guildCfg.bienvenidasUrl ?? null;
+    if (url && /^https?:\/\//i.test(url)) {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Ir al enlace").setStyle(ButtonStyle.Link).setURL(url)
+      );
+      components.push(row);
+    }
+
+    await channel.send({ embeds: [embed], components });
     console.log("[welcome] sent to", channelId);
   } catch (err) {
     console.error("sendWelcome error:", err);
@@ -110,26 +172,60 @@ export async function sendWelcome(member) {
 
 export async function sendFarewell(member) {
   try {
-    console.log(`[farewell] trigger guild=${member.guild.id} user=${member.id}`);
+    console.log(`[farewell] trigger guild=${member.guild?.id} user=${member.id}`);
     const guildCfg = config.channels?.[member.guild.id] ?? {};
     const channelId = guildCfg.despedidas;
-    const template = guildCfg.despedidasMessage ?? "Adiós {user}, gracias por estar en **{server}**";
-    if (!channelId) return;
-    const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-    if (!channel) return;
+    const templateRaw = guildCfg.despedidasMessage ?? "Adiós {user}, gracias por estar en **{server}**";
+    if (!channelId) {
+      console.log("[farewell] no channel configured");
+      return;
+    }
 
-    const content = formatTemplate(template, member);
-    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
+    const channel = await member.guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) {
+      console.log("[farewell] channel fetch failed:", channelId);
+      return;
+    }
+
+    // Obtener banner si existe
+    let bannerUrl = null;
+    try {
+      const fullUser = await member.user.fetch().catch(() => member.user);
+      bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
+    } catch {
+      bannerUrl = member.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
+    }
+    const avatarUrl = member.user.displayAvatarURL ? member.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
+
+    const replacements = {
+      user: `<@${member.id}>`,
+      username: member.user.username,
+      server: member.guild?.name ?? "",
+      avatar: avatarUrl ?? "",
+      banner: bannerUrl ?? ""
+    };
+    const content = formatTemplate(templateRaw, replacements);
 
     const embed = new EmbedBuilder()
       .setColor(0xED4245)
       .setTitle("Despedida")
       .setDescription(content)
-      .setTimestamp();
+      .setThumbnail(avatarUrl ?? undefined)
+      .setTimestamp()
+      .setFooter({ text: `${member.guild?.name ?? ""} • Hasta luego` });
 
-    if (avatarUrl) embed.setImage(avatarUrl);
+    if (templateRaw.includes("{banner}") && bannerUrl) embed.setImage(bannerUrl);
+    else if (avatarUrl) embed.setImage(avatarUrl);
 
-    await channel.send({ embeds: [embed] });
+    const components = [];
+    const url = guildCfg.despedidasUrl ?? null;
+    if (url && /^https?:\/\//i.test(url)) {
+      components.push(new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Ver más").setStyle(ButtonStyle.Link).setURL(url)
+      ));
+    }
+
+    await channel.send({ embeds: [embed], components });
     console.log("[farewell] sent to", channelId);
   } catch (err) {
     console.error("sendFarewell error:", err);
@@ -138,17 +234,16 @@ export async function sendFarewell(member) {
 
 export async function handleBoost(oldMember, newMember) {
   try {
-    // A veces oldMember viene parcial; intentar fetch si es necesario
-    if (!oldMember || !oldMember.id) return;
-    console.log(`[boost] guild=${newMember.guild.id} user=${newMember.id} oldPremium=${oldMember.premiumSince} newPremium=${newMember.premiumSince}`);
+    // oldMember puede venir parcial o sin premiumSince; newMember es el estado nuevo
+    const oldPremium = oldMember?.premiumSince ?? null;
+    const newPremium = newMember?.premiumSince ?? null;
 
-    const oldPremium = oldMember.premiumSince;
-    const newPremium = newMember.premiumSince;
+    console.log(`[boost] guild=${newMember.guild?.id} user=${newMember.id} oldPremium=${oldPremium} newPremium=${newPremium}`);
 
     if (!oldPremium && newPremium) {
       const guildCfg = config.channels?.[newMember.guild.id] ?? {};
       const channelId = guildCfg.boost;
-      const template = guildCfg.boostMessage ?? "{user} ha dado boost al servidor. ¡Gracias!";
+      const templateRaw = guildCfg.boostMessage ?? "{user} ha dado boost al servidor. ¡Gracias!";
 
       if (!channelId) {
         console.log("[boost] no channel configured");
@@ -161,18 +256,44 @@ export async function handleBoost(oldMember, newMember) {
         return;
       }
 
-      const content = formatTemplate(template, newMember);
-      const avatarUrl = newMember.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
+      // Obtener banner del usuario que boosteó
+      let bannerUrl = null;
+      try {
+        const fullUser = await newMember.user.fetch().catch(() => newMember.user);
+        bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
+      } catch {
+        bannerUrl = newMember.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
+      }
+      const avatarUrl = newMember.user.displayAvatarURL ? newMember.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
+
+      const replacements = {
+        user: `<@${newMember.id}>`,
+        username: newMember.user.username,
+        server: newMember.guild?.name ?? "",
+        avatar: avatarUrl ?? "",
+        banner: bannerUrl ?? ""
+      };
+      const content = formatTemplate(templateRaw, replacements);
 
       const embed = new EmbedBuilder()
         .setColor(0xFAA61A)
         .setTitle("¡Nuevo Boost!")
         .setDescription(content)
+        .setThumbnail(avatarUrl ?? undefined)
         .setTimestamp();
 
-      if (avatarUrl) embed.setImage(avatarUrl);
+      if (templateRaw.includes("{banner}") && bannerUrl) embed.setImage(bannerUrl);
+      else if (avatarUrl) embed.setImage(avatarUrl);
 
-      await channel.send({ embeds: [embed] });
+      const components = [];
+      const url = guildCfg.boostUrl ?? null;
+      if (url && /^https?:\/\//i.test(url)) {
+        components.push(new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setLabel("Ver más").setStyle(ButtonStyle.Link).setURL(url)
+        ));
+      }
+
+      await channel.send({ embeds: [embed], components });
       console.log("[boost] sent to", channelId);
     }
   } catch (err) {
@@ -369,39 +490,44 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
-case "infosetchannels": {
-  // Solo admins
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
+    case "infosetchannels": {
+      // Solo admins
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
 
-  const guildCfg = config.channels?.[interaction.guild.id] ?? {};
+      const guildCfg = config.channels?.[interaction.guild.id] ?? {};
 
-  const lines = [
-    "📑 **Información de configuración de canales**",
-    "",
-    `📢 Anuncios: ${guildCfg.anuncios ? `<#${guildCfg.anuncios}>` : "No configurado"}`,
-    `⚠️ Castigos: ${guildCfg.castigos ? `<#${guildCfg.castigos}>` : "No configurado"}`,
-    `👋 Bienvenidas: ${guildCfg.bienvenidas ? `<#${guildCfg.bienvenidas}>` : "No configurado"}`,
-    `👋 Mensaje Bienvenida: ${guildCfg.bienvenidasMessage ?? "Por defecto"}`,
-    `🚪 Despedidas: ${guildCfg.despedidas ? `<#${guildCfg.despedidas}>` : "No configurado"}`,
-    `🚪 Mensaje Despedida: ${guildCfg.despedidasMessage ?? "Por defecto"}`,
-    `💎 Boost: ${guildCfg.boost ? `<#${guildCfg.boost}>` : "No configurado"}`,
-    `💎 Mensaje Boost: ${guildCfg.boostMessage ?? "Por defecto"}`,
-    "",
-    "🛠️ **Cómo usar los comandos /setchannel...**",
-    "- `/setchannelbienvenidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}\"`",
-    "- `/setchanneldespedidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}\"`",
-    "- `/setchannelboost canal:#canal mensaje:\"Texto con {user}, {server}\"`",
-    "",
-    "👉 Placeholders disponibles:",
-    "- `{user}` → Menciona al usuario",
-    "- `{username}` → Nombre del usuario",
-    "- `{server}` → Nombre del servidor"
-  ];
+      const lines = [
+        "📑 **Información de configuración de canales**",
+        "",
+        `📢 Anuncios: ${guildCfg.anuncios ? `<#${guildCfg.anuncios}>` : "No configurado"}`,
+        `⚠️ Castigos: ${guildCfg.castigos ? `<#${guildCfg.castigos}>` : "No configurado"}`,
+        `👋 Bienvenidas: ${guildCfg.bienvenidas ? `<#${guildCfg.bienvenidas}>` : "No configurado"}`,
+        `👋 Mensaje Bienvenida: ${guildCfg.bienvenidasMessage ?? "Por defecto"}`,
+        `👋 URL Bienvenida: ${guildCfg.bienvenidasUrl ?? "No configurada"}`,
+        `🚪 Despedidas: ${guildCfg.despedidas ? `<#${guildCfg.despedidas}>` : "No configurado"}`,
+        `🚪 Mensaje Despedida: ${guildCfg.despedidasMessage ?? "Por defecto"}`,
+        `🚪 URL Despedida: ${guildCfg.despedidasUrl ?? "No configurada"}`,
+        `💎 Boost: ${guildCfg.boost ? `<#${guildCfg.boost}>` : "No configurado"}`,
+        `💎 Mensaje Boost: ${guildCfg.boostMessage ?? "Por defecto"}`,
+        `💎 URL Boost: ${guildCfg.boostUrl ?? "No configurada"}`,
+        "",
+        "🛠️ **Cómo usar los comandos /setchannel...**",
+        "- `/setchannelbienvenidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}, {banner}, {avatar}\" url:\"https://...\"`",
+        "- `/setchanneldespedidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}, {banner}, {avatar}\" url:\"https://...\"`",
+        "- `/setchannelboost canal:#canal mensaje:\"Texto con {user}, {username}, {server}, {banner}, {avatar}\" url:\"https://...\"`",
+        "",
+        "👉 Placeholders disponibles:",
+        "- `{user}` → Menciona al usuario",
+        "- `{username}` → Nombre del usuario",
+        "- `{server}` → Nombre del servidor",
+        "- `{avatar}` → URL del avatar del usuario",
+        "- `{banner}` → URL del banner del usuario (si tiene)"
+      ];
 
-  return interaction.reply({ content: lines.join("\n"), ephemeral: true });
-}
+      return interaction.reply({ content: lines.join("\n"), ephemeral: true });
+    }
 
     case "createhuman": {
       const members = await interaction.guild.members.fetch();
@@ -427,72 +553,93 @@ case "infosetchannels": {
       saveConfig();
       return interaction.reply({ content: "✅ Canal de tops configurado.", ephemeral: true });
 
-   case "setchannelanuncios": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
-  const canal = interaction.options.getChannel("canal");
-  config.channels[interaction.guild.id] ??= {};
-  config.channels[interaction.guild.id].anuncios = canal.id;
-  saveConfig();
-  return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
-}
+    case "setchannelanuncios": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
+      const canal = interaction.options.getChannel("canal");
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].anuncios = canal.id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
+    }
 
-case "setchannelcastigos": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
-  const canal = interaction.options.getChannel("canal");
-  config.channels[interaction.guild.id] ??= {};
-  config.channels[interaction.guild.id].castigos = canal.id;
-  saveConfig();
-  return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
-}
+    case "setchannelcastigos": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
+      const canal = interaction.options.getChannel("canal");
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].castigos = canal.id;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
+    }
 
-case "setchannelbienvenidas": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
-  const canal = interaction.options.getChannel("canal");
-  const mensaje = interaction.options.getString("mensaje") ?? null;
-  config.channels[interaction.guild.id] ??= {};
-  config.channels[interaction.guild.id].bienvenidas = canal.id;
-  if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
-  saveConfig();
-  return interaction.reply({ content: "✅ Canal y plantilla de bienvenida configurados.", ephemeral: true });
-}
+    case "setchannelbienvenidas": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
+      const canal = interaction.options.getChannel("canal");
+      const mensaje = interaction.options.getString("mensaje") ?? null;
+      const url = interaction.options.getString("url") ?? null;
 
-case "setchanneldespedidas": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
-  const canal = interaction.options.getChannel("canal");
-  const mensaje = interaction.options.getString("mensaje") ?? null;
-  config.channels[interaction.guild.id] ??= {};
-  config.channels[interaction.guild.id].despedidas = canal.id;
-  if (mensaje !== null) config.channels[interaction.guild.id].despedidasMessage = mensaje;
-  saveConfig();
-  return interaction.reply({ content: "✅ Canal y plantilla de despedida configurados.", ephemeral: true });
-}
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].bienvenidas = canal.id;
+      if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
+      if (url !== null && url !== "") config.channels[interaction.guild.id].bienvenidasUrl = url;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal, plantilla y URL (si se proporcionó) configurados.", ephemeral: true });
+    }
 
-case "setchannelboost": {
-  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-  }
-  const canal = interaction.options.getChannel("canal");
-  const mensaje = interaction.options.getString("mensaje") ?? null;
-  config.channels[interaction.guild.id] ??= {};
-  config.channels[interaction.guild.id].boost = canal.id;
-  if (mensaje !== null) config.channels[interaction.guild.id].boostMessage = mensaje;
-  saveConfig();
-  return interaction.reply({ content: "✅ Canal y plantilla de boost configurados.", ephemeral: true });
-}
-                      
+    case "setchanneldespedidas": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
+      const canal = interaction.options.getChannel("canal");
+      const mensaje = interaction.options.getString("mensaje") ?? null;
+      const url = interaction.options.getString("url") ?? null;
+
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].despedidas = canal.id;
+      if (mensaje !== null) config.channels[interaction.guild.id].despedidasMessage = mensaje;
+      if (url !== null && url !== "") config.channels[interaction.guild.id].despedidasUrl = url;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal, plantilla y URL (si se proporcionó) configurados.", ephemeral: true });
+    }
+
+    case "setchannelboost": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+      }
+      const canal = interaction.options.getChannel("canal");
+      const mensaje = interaction.options.getString("mensaje") ?? null;
+      const url = interaction.options.getString("url") ?? null;
+
+      config.channels[interaction.guild.id] ??= {};
+      config.channels[interaction.guild.id].boost = canal.id;
+      if (mensaje !== null) config.channels[interaction.guild.id].boostMessage = mensaje;
+      if (url !== null && url !== "") config.channels[interaction.guild.id].boostUrl = url;
+      saveConfig();
+      return interaction.reply({ content: "✅ Canal, plantilla y URL (si se proporcionó) configurados.", ephemeral: true });
+    }
+
     case "setchannelalianzas":
       config.channels[interaction.guild.id] ??= {};
       config.channels[interaction.guild.id].alianzas = interaction.options.getChannel("canal").id;
       saveConfig();
       return interaction.reply({ content: "✅ Canal de alianzas configurado.", ephemeral: true });
+
+    // Comando temporal de prueba (opcional) - eliminar cuando ya no lo necesites
+    case "testwelcome": {
+      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        return interaction.reply({ content: "❌ Solo administradores.", ephemeral: true });
+      }
+      const user = interaction.options.getUser("user");
+      const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+      if (!member) return interaction.reply({ content: "No pude obtener el miembro.", ephemeral: true });
+      await sendWelcome(member);
+      return interaction.reply({ content: "✅ Enviado embed de prueba.", ephemeral: true });
+    }
 
     default:
       return interaction.reply({ content: "❌ Comando desconocido.", ephemeral: true });
