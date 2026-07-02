@@ -59,19 +59,22 @@
     ]
   },
   {
-    "name": "setchannelbienvenidas",
-    "description": "Configurar canal bienvenidas",
-    "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
-    ]
-  },
-  {
-    "name": "setchanneldespedidas",
-    "description": "Configurar canal despedidas",
-    "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
-    ]
-  },
+ {
+  "name": "setchannelbienvenidas",
+  "description": "Configurar canal y plantilla de bienvenidas",
+  "options": [
+    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server})", "required": false }
+  ]
+},
+{
+  "name": "setchanneldespedidas",
+  "description": "Configurar canal y plantilla de despedidas",
+  "options": [
+    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server})", "required": false }
+  ]
+},
   {
     "name": "setchannelalianzas",
     "description": "Configurar canal alianzas",
@@ -84,10 +87,11 @@
   "description": "Ver configuración de canales y cómo usar los comandos referentes"
 },
   {
-    "name": "setchannelboost",
-    "description": "Configurar canal boost",
-    "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+ "name": "setchannelboost",
+  "description": "Configurar canal y plantilla para boosts",
+  "options": [
+    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server})", "required": false }
     ]
   }
 ]
