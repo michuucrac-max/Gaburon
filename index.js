@@ -11,10 +11,11 @@ import {
   Events,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  Partials
 } from "discord.js";
 
-import { executeLogic, ensureCounterChannel, config } from "./logic.js";
+import { executeLogic, ensureCounterChannel, config, sendWelcome, sendFarewell, handleBoost } from "./logic.js";
 
 /* ==========================
            CONFIG
@@ -140,26 +141,65 @@ async function updateCounters(guild) {
    EVENTOS DE MIEMBROS
 ========================== */
 
-// Cuando entra un miembro nuevo
-client.on("guildMemberAdd", member => {
-  // Actualiza contadores si los usas
-  updateCounters(member.guild).catch(console.error);
-  // Envía mensaje de bienvenida
-  sendWelcome(member).catch(console.error);
+// Asegúrate de que los listeners estén registrados ANTES de client.login(token)
+
+client.on(Events.GuildMemberAdd, async member => {
+  try {
+    console.log(`[EVENT] guildMemberAdd fired guild=${member.guild?.id} user=${member.id}`);
+
+    // Asegurar miembro completo si viene parcial
+    if (member.partial) {
+      try { member = await member.fetch(); } catch (e) { console.warn("[EVENT] fetch member failed:", e); }
+    }
+
+    // Debug: mostrar configuración actual para la guild
+    console.log("[EVENT] guild config:", config.channels?.[member.guild.id] ?? {});
+
+    // Actualizar contadores y enviar bienvenida
+    await updateCounters(member.guild).catch(err => console.error("guildMemberAdd updateCounters:", err));
+    await sendWelcome(member).catch(err => console.error("sendWelcome error:", err));
+  } catch (err) {
+    console.error("guildMemberAdd handler error:", err);
+  }
 });
 
-// Cuando un miembro se va
-client.on("guildMemberRemove", member => {
-  // Actualiza contadores si los usas
-  updateCounters(member.guild).catch(console.error);
-  // Envía mensaje de despedida
-  sendFarewell(member).catch(console.error);
+client.on(Events.GuildMemberRemove, async member => {
+  try {
+    console.log(`[EVENT] guildMemberRemove fired guild=${member.guild?.id} user=${member.id}`);
+
+    if (member.partial) {
+      try { member = await member.fetch(); } catch (e) { /* ignore */ }
+    }
+
+    await updateCounters(member.guild).catch(err => console.error("guildMemberRemove updateCounters:", err));
+    await sendFarewell(member).catch(err => console.error("sendFarewell error:", err));
+  } catch (err) {
+    console.error("guildMemberRemove handler error:", err);
+  }
 });
 
-// Cuando cambia el estado de boost
-client.on("guildMemberUpdate", (oldMember, newMember) => {
-  // Detecta boost nuevo y envía mensaje
-  handleBoost(oldMember, newMember).catch(console.error);
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  try {
+    console.log(`[EVENT] guildMemberUpdate fired guild=${newMember.guild?.id} user=${newMember.id}`);
+
+    // Asegurar objetos completos
+    if (oldMember?.partial) {
+      try { oldMember = await oldMember.fetch(); } catch (e) { /* ignore */ }
+    }
+    if (newMember?.partial) {
+      try { newMember = await newMember.fetch(); } catch (e) { /* ignore */ }
+    }
+
+    // Si oldMember no tiene premiumSince, intentar fetch del miembro en la guild
+    if (!oldMember?.premiumSince) {
+      const fetched = await newMember.guild.members.fetch(newMember.id).catch(() => null);
+      if (fetched) oldMember = fetched;
+    }
+
+    await handleBoost(oldMember, newMember).catch(err => console.error("handleBoost error:", err));
+  } catch (err) {
+    console.error("guildMemberUpdate handler error:", err);
+  }
 });
 
 /* ==========================
