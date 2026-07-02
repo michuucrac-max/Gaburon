@@ -64,7 +64,9 @@ function formatTemplate(template, member) {
   return template
     .replaceAll("{user}", `<@${member.id}>`)
     .replaceAll("{username}", member.user.username)
-    .replaceAll("{server}", member.guild.name);
+    .replaceAll("{server}", member.guild.name)
+    .replaceAll("{avatar}", member.user.displayAvatarURL({ extension: "png", size: 1024 }))
+    .replaceAll("{banner}", member.user.bannerURL({ extension: "png", size: 1024 }) ?? "");
 }
 
 /* ==========================
@@ -373,56 +375,67 @@ case "infosetchannels": {
       saveConfig();
       return interaction.reply({ content: "✅ Canal de tops configurado.", ephemeral: true });
 
-   
+   case "setchannelanuncios": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].anuncios = canal.id;
+  saveConfig();
+  return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
+}
 
-    case "setchannelanuncios": {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-      }
-      const canal = interaction.options.getChannel("canal");
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].anuncios = canal.id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
-    }
+case "setchannelcastigos": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].castigos = canal.id;
+  saveConfig();
+  return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
+}
 
-    case "setchannelcastigos": {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-      }
-      const canal = interaction.options.getChannel("canal");
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].castigos = canal.id;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
-    }
+case "setchannelbienvenidas": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].bienvenidas = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
+  saveConfig();
+  return interaction.reply({ content: "✅ Canal y plantilla de bienvenida configurados.", ephemeral: true });
+}
 
-    case "setchannelbienvenidas": {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-      }
-      const canal = interaction.options.getChannel("canal");
-      const mensaje = interaction.options.getString("mensaje") ?? null;
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].bienvenidas = canal.id;
-      if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal y plantilla de bienvenida configurados.", ephemeral: true });
-    }
+case "setchanneldespedidas": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].despedidas = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].despedidasMessage = mensaje;
+  saveConfig();
+  return interaction.reply({ content: "✅ Canal y plantilla de despedida configurados.", ephemeral: true });
+}
 
-    case "setchanneldespedidas": {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-      }
-      const canal = interaction.options.getChannel("canal");
-      const mensaje = interaction.options.getString("mensaje") ?? null;
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].despedidas = canal.id;
-      if (mensaje !== null) config.channels[interaction.guild.id].despedidasMessage = mensaje;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal de anuncios configurado.", ephemeral: true });
-    }
-
+case "setchannelboost": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].boost = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].boostMessage = mensaje;
+  saveConfig();
+  return interaction.reply({ content: "✅ Canal y plantilla de boost configurados.", ephemeral: true });
+}
+                      
     case "setchannelalianzas":
       config.channels[interaction.guild.id] ??= {};
       config.channels[interaction.guild.id].alianzas = interaction.options.getChannel("canal").id;
