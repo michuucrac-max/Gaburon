@@ -245,6 +245,40 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Castigo ejecutado.", ephemeral: true });
     }
 
+case "infosetchannels": {
+  // Solo admins
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+
+  const guildCfg = config.channels?.[interaction.guild.id] ?? {};
+
+  const lines = [
+    "📑 **Información de configuración de canales**",
+    "",
+    `📢 Anuncios: ${guildCfg.anuncios ? `<#${guildCfg.anuncios}>` : "No configurado"}`,
+    `⚠️ Castigos: ${guildCfg.castigos ? `<#${guildCfg.castigos}>` : "No configurado"}`,
+    `👋 Bienvenidas: ${guildCfg.bienvenidas ? `<#${guildCfg.bienvenidas}>` : "No configurado"}`,
+    `👋 Mensaje Bienvenida: ${guildCfg.bienvenidasMessage ?? "Por defecto"}`,
+    `🚪 Despedidas: ${guildCfg.despedidas ? `<#${guildCfg.despedidas}>` : "No configurado"}`,
+    `🚪 Mensaje Despedida: ${guildCfg.despedidasMessage ?? "Por defecto"}`,
+    `💎 Boost: ${guildCfg.boost ? `<#${guildCfg.boost}>` : "No configurado"}`,
+    `💎 Mensaje Boost: ${guildCfg.boostMessage ?? "Por defecto"}`,
+    "",
+    "🛠️ **Cómo usar los comandos /setchannel...**",
+    "- `/setchannelbienvenidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}\"`",
+    "- `/setchanneldespedidas canal:#canal mensaje:\"Texto con {user}, {username}, {server}\"`",
+    "- `/setchannelboost canal:#canal mensaje:\"Texto con {user}, {server}\"`",
+    "",
+    "👉 Placeholders disponibles:",
+    "- `{user}` → Menciona al usuario",
+    "- `{username}` → Nombre del usuario",
+    "- `{server}` → Nombre del servidor"
+  ];
+
+  return interaction.reply({ content: lines.join("\n"), ephemeral: true });
+}
+
     case "createhuman": {
       const members = await interaction.guild.members.fetch();
       const humans = members.filter(m => !m.user.bot).size;
