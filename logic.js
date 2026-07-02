@@ -65,66 +65,118 @@ function formatTemplate(template, member) {
     .replaceAll("{user}", `<@${member.id}>`)
     .replaceAll("{username}", member.user.username)
     .replaceAll("{server}", member.guild.name)
-    .replaceAll("{avatar}", member.user.displayAvatarURL({ extension: "png", size: 1024 }))
+    .replaceAll("{avatar}", member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? "")
     .replaceAll("{banner}", member.user.bannerURL({ extension: "png", size: 1024 }) ?? "");
 }
 
-/* ==========================
-   Funciones de envío embed
-========================== */
 export async function sendWelcome(member) {
-  const guildCfg = config.channels?.[member.guild.id] ?? {};
-  const channelId = guildCfg.bienvenidas;
-  const template = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**";
-  if (!channelId) return;
-  const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-  if (!channel) return;
+  try {
+    console.log(`[welcome] trigger guild=${member.guild.id} user=${member.id}`);
+    const guildCfg = config.channels?.[member.guild.id] ?? {};
+    const channelId = guildCfg.bienvenidas;
+    const template = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**";
+    if (!channelId) {
+      console.log("[welcome] no channel configured");
+      return;
+    }
 
-  const embed = new EmbedBuilder()
-    .setColor(0x57F287)
-    .setTitle("¡Bienvenido!")
-    .setDescription(formatTemplate(template, member))
-    .setImage(member.user.displayAvatarURL({ extension: "png", size: 1024 }))
-    .setTimestamp();
+    const channel = await member.guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) {
+      console.log("[welcome] channel fetch failed:", channelId);
+      return;
+    }
 
-  await channel.send({ embeds: [embed] });
+    const content = formatTemplate(template, member);
+    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle("¡Bienvenido!")
+      .setDescription(content)
+      .setTimestamp();
+
+    if (content.includes("{avatar}") || content.includes("{banner}")) {
+      // ya reemplazado en content; si contiene URL, no hace falta setImage
+    }
+
+    if (avatarUrl) embed.setImage(avatarUrl);
+
+    await channel.send({ embeds: [embed] });
+    console.log("[welcome] sent to", channelId);
+  } catch (err) {
+    console.error("sendWelcome error:", err);
+  }
 }
 
 export async function sendFarewell(member) {
-  const guildCfg = config.channels?.[member.guild.id] ?? {};
-  const channelId = guildCfg.despedidas;
-  const template = guildCfg.despedidasMessage ?? "Adiós {user}, gracias por estar en **{server}**";
-  if (!channelId) return;
-  const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-  if (!channel) return;
+  try {
+    console.log(`[farewell] trigger guild=${member.guild.id} user=${member.id}`);
+    const guildCfg = config.channels?.[member.guild.id] ?? {};
+    const channelId = guildCfg.despedidas;
+    const template = guildCfg.despedidasMessage ?? "Adiós {user}, gracias por estar en **{server}**";
+    if (!channelId) return;
+    const channel = await member.guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) return;
 
-  const embed = new EmbedBuilder()
-    .setColor(0xED4245)
-    .setTitle("Despedida")
-    .setDescription(formatTemplate(template, member))
-    .setImage(member.user.displayAvatarURL({ extension: "png", size: 1024 }))
-    .setTimestamp();
+    const content = formatTemplate(template, member);
+    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
 
-  await channel.send({ embeds: [embed] });
+    const embed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle("Despedida")
+      .setDescription(content)
+      .setTimestamp();
+
+    if (avatarUrl) embed.setImage(avatarUrl);
+
+    await channel.send({ embeds: [embed] });
+    console.log("[farewell] sent to", channelId);
+  } catch (err) {
+    console.error("sendFarewell error:", err);
+  }
 }
 
 export async function handleBoost(oldMember, newMember) {
-  if (!oldMember.premiumSince && newMember.premiumSince) {
-    const guildCfg = config.channels?.[newMember.guild.id] ?? {};
-    const channelId = guildCfg.boost;
-    const template = guildCfg.boostMessage ?? "{user} ha dado boost al servidor. ¡Gracias!";
-    if (!channelId) return;
-    const channel = await newMember.guild.channels.fetch(channelId).catch(() => null);
-    if (!channel) return;
+  try {
+    // A veces oldMember viene parcial; intentar fetch si es necesario
+    if (!oldMember || !oldMember.id) return;
+    console.log(`[boost] guild=${newMember.guild.id} user=${newMember.id} oldPremium=${oldMember.premiumSince} newPremium=${newMember.premiumSince}`);
 
-    const embed = new EmbedBuilder()
-      .setColor(0xFAA61A)
-      .setTitle("¡Nuevo Boost!")
-      .setDescription(formatTemplate(template, newMember))
-      .setImage(newMember.user.displayAvatarURL({ extension: "png", size: 1024 }))
-      .setTimestamp();
+    const oldPremium = oldMember.premiumSince;
+    const newPremium = newMember.premiumSince;
 
-    await channel.send({ embeds: [embed] });
+    if (!oldPremium && newPremium) {
+      const guildCfg = config.channels?.[newMember.guild.id] ?? {};
+      const channelId = guildCfg.boost;
+      const template = guildCfg.boostMessage ?? "{user} ha dado boost al servidor. ¡Gracias!";
+
+      if (!channelId) {
+        console.log("[boost] no channel configured");
+        return;
+      }
+
+      const channel = await newMember.guild.channels.fetch(channelId).catch(() => null);
+      if (!channel) {
+        console.log("[boost] channel fetch failed:", channelId);
+        return;
+      }
+
+      const content = formatTemplate(template, newMember);
+      const avatarUrl = newMember.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xFAA61A)
+        .setTitle("¡Nuevo Boost!")
+        .setDescription(content)
+        .setTimestamp();
+
+      if (avatarUrl) embed.setImage(avatarUrl);
+
+      await channel.send({ embeds: [embed] });
+      console.log("[boost] sent to", channelId);
+    }
+  } catch (err) {
+    console.error("handleBoost error:", err);
   }
 }
 
