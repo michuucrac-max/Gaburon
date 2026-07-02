@@ -137,6 +137,32 @@ async function updateCounters(guild) {
 }
 
 /* ==========================
+   EVENTOS DE MIEMBROS
+========================== */
+
+// Cuando entra un miembro nuevo
+client.on("guildMemberAdd", member => {
+  // Actualiza contadores si los usas
+  updateCounters(member.guild).catch(console.error);
+  // Envía mensaje de bienvenida
+  sendWelcome(member).catch(console.error);
+});
+
+// Cuando un miembro se va
+client.on("guildMemberRemove", member => {
+  // Actualiza contadores si los usas
+  updateCounters(member.guild).catch(console.error);
+  // Envía mensaje de despedida
+  sendFarewell(member).catch(console.error);
+});
+
+// Cuando cambia el estado de boost
+client.on("guildMemberUpdate", (oldMember, newMember) => {
+  // Detecta boost nuevo y envía mensaje
+  handleBoost(oldMember, newMember).catch(console.error);
+});
+
+/* ==========================
             LOGIN
 ========================== */
 client.login(TOKEN)
