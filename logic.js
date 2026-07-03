@@ -94,7 +94,7 @@ function formatTemplate(template, memberOrReplacements) {
 }
 
 /* ==========================
-   Funciones de envío embed (con soporte {banner} y botón URL)
+   Función: sendWelcome (banner personalizado y botón URL)
 ========================== */
 export async function sendWelcome(member) {
   try {
@@ -106,12 +106,20 @@ export async function sendWelcome(member) {
     const bannerUrl = guildCfg.bienvenidasBanner ?? null; // banner personalizado
     const url = guildCfg.bienvenidasUrl ?? null;          // botón opcional
 
-    if (!channelId) return;
+    if (!channelId) {
+      console.log("[welcome] no channel configured");
+      return;
+    }
+
     const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-    if (!channel) return;
+    if (!channel) {
+      console.log("[welcome] channel fetch failed:", channelId);
+      return;
+    }
 
     const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
 
+    // Reemplazos: {banner} no mete URL en el texto
     const replacements = {
       user: `<@${member.id}>`,
       username: member.user.username,
@@ -129,6 +137,7 @@ export async function sendWelcome(member) {
       .setTimestamp()
       .setFooter({ text: `${member.guild.name} • ¡Disfruta!` });
 
+    // Si el mensaje incluye {banner} y hay bannerUrl configurado, mostrarlo como imagen grande
     if (templateRaw.includes("{banner}") && bannerUrl) {
       embed.setImage(bannerUrl);
     } else if (avatarUrl) {
@@ -526,7 +535,7 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
     }
 
-   case "setchannelbienvenidas": {
+case "setchannelbienvenidas": {
   if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
     return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
   }
@@ -544,7 +553,6 @@ async function handleSlashCommands(interaction, client) {
 
   return interaction.reply({ content: "✅ Canal, plantilla, banner y URL configurados.", ephemeral: true });
 }
-
     case "setchanneldespedidas": {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
         return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
