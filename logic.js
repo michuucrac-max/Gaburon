@@ -102,65 +102,44 @@ export async function sendWelcome(member) {
 
     const guildCfg = config.channels?.[member.guild.id] ?? {};
     const channelId = guildCfg.bienvenidas;
-    const templateRaw = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**\n\n¡Pásala bien!";
-    if (!channelId) {
-      console.log("[welcome] no channel configured");
-      return;
-    }
+    const templateRaw = guildCfg.bienvenidasMessage ?? "Bienvenido {user} a **{server}**";
+    const bannerUrl = guildCfg.bienvenidasBanner ?? null; // banner personalizado
+    const url = guildCfg.bienvenidasUrl ?? null;          // botón opcional
 
+    if (!channelId) return;
     const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-    if (!channel) {
-      console.log("[welcome] channel fetch failed:", channelId);
-      return;
-    }
+    if (!channel) return;
 
-    // Intentar obtener banner del usuario (fetch para asegurar datos)
-    let bannerUrl = null;
-    try {
-      const fullUser = await member.user.fetch().catch(() => member.user);
-      bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-    } catch (e) {
-      bannerUrl = member.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-    }
+    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
 
-    const avatarUrl = member.user.displayAvatarURL ? member.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
-
-    // Preparar replacements
     const replacements = {
       user: `<@${member.id}>`,
       username: member.user.username,
-      server: member.guild?.name ?? "",
+      server: member.guild.name,
       avatar: avatarUrl ?? "",
-      banner: bannerUrl ?? ""
+      banner: "" // vacío para no meter links en el texto
     };
-
     const content = formatTemplate(templateRaw, replacements);
 
-    // Construir embed con estilo similar al ejemplo (título grande, subtítulo, thumbnail a la derecha)
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle(`¡Bienvenido ${member.user.username}!`)
       .setDescription(content)
+      .setThumbnail(avatarUrl)
       .setTimestamp()
-      .setThumbnail(avatarUrl ?? undefined)
-      .setFooter({ text: `${member.guild?.name ?? ""} • ¡Disfruta!` });
+      .setFooter({ text: `${member.guild.name} • ¡Disfruta!` });
 
-    // Si la plantilla incluye {banner} y bannerUrl existe, usarlo como imagen grande
     if (templateRaw.includes("{banner}") && bannerUrl) {
       embed.setImage(bannerUrl);
     } else if (avatarUrl) {
-      // fallback: imagen grande con avatar
       embed.setImage(avatarUrl);
     }
 
-    // Botón URL opcional guardado en config (bienvenidasUrl)
     const components = [];
-    const url = guildCfg.bienvenidasUrl ?? null;
     if (url && /^https?:\/\//i.test(url)) {
-      const row = new ActionRowBuilder().addComponents(
+      components.push(new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel("Ir al enlace").setStyle(ButtonStyle.Link).setURL(url)
-      );
-      components.push(row);
+      ));
     }
 
     await channel.send({ embeds: [embed], components });
@@ -176,33 +155,21 @@ export async function sendFarewell(member) {
     const guildCfg = config.channels?.[member.guild.id] ?? {};
     const channelId = guildCfg.despedidas;
     const templateRaw = guildCfg.despedidasMessage ?? "Adiós {user}, gracias por estar en **{server}**";
-    if (!channelId) {
-      console.log("[farewell] no channel configured");
-      return;
-    }
+    const bannerUrl = guildCfg.despedidasBanner ?? null;
+    const url = guildCfg.despedidasUrl ?? null;
 
+    if (!channelId) return;
     const channel = await member.guild.channels.fetch(channelId).catch(() => null);
-    if (!channel) {
-      console.log("[farewell] channel fetch failed:", channelId);
-      return;
-    }
+    if (!channel) return;
 
-    // Obtener banner si existe
-    let bannerUrl = null;
-    try {
-      const fullUser = await member.user.fetch().catch(() => member.user);
-      bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-    } catch {
-      bannerUrl = member.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-    }
-    const avatarUrl = member.user.displayAvatarURL ? member.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
+    const avatarUrl = member.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
 
     const replacements = {
       user: `<@${member.id}>`,
       username: member.user.username,
-      server: member.guild?.name ?? "",
+      server: member.guild.name,
       avatar: avatarUrl ?? "",
-      banner: bannerUrl ?? ""
+      banner: "" // no insertamos URL en texto
     };
     const content = formatTemplate(templateRaw, replacements);
 
@@ -210,15 +177,14 @@ export async function sendFarewell(member) {
       .setColor(0xED4245)
       .setTitle("Despedida")
       .setDescription(content)
-      .setThumbnail(avatarUrl ?? undefined)
+      .setThumbnail(avatarUrl)
       .setTimestamp()
-      .setFooter({ text: `${member.guild?.name ?? ""} • Hasta luego` });
+      .setFooter({ text: `${member.guild.name} • Hasta luego` });
 
     if (templateRaw.includes("{banner}") && bannerUrl) embed.setImage(bannerUrl);
     else if (avatarUrl) embed.setImage(avatarUrl);
 
     const components = [];
-    const url = guildCfg.despedidasUrl ?? null;
     if (url && /^https?:\/\//i.test(url)) {
       components.push(new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel("Ver más").setStyle(ButtonStyle.Link).setURL(url)
@@ -234,7 +200,6 @@ export async function sendFarewell(member) {
 
 export async function handleBoost(oldMember, newMember) {
   try {
-    // oldMember puede venir parcial o sin premiumSince; newMember es el estado nuevo
     const oldPremium = oldMember?.premiumSince ?? null;
     const newPremium = newMember?.premiumSince ?? null;
 
@@ -244,34 +209,21 @@ export async function handleBoost(oldMember, newMember) {
       const guildCfg = config.channels?.[newMember.guild.id] ?? {};
       const channelId = guildCfg.boost;
       const templateRaw = guildCfg.boostMessage ?? "{user} ha dado boost al servidor. ¡Gracias!";
+      const bannerUrl = guildCfg.boostBanner ?? null;
+      const url = guildCfg.boostUrl ?? null;
 
-      if (!channelId) {
-        console.log("[boost] no channel configured");
-        return;
-      }
-
+      if (!channelId) return;
       const channel = await newMember.guild.channels.fetch(channelId).catch(() => null);
-      if (!channel) {
-        console.log("[boost] channel fetch failed:", channelId);
-        return;
-      }
+      if (!channel) return;
 
-      // Obtener banner del usuario que boosteó
-      let bannerUrl = null;
-      try {
-        const fullUser = await newMember.user.fetch().catch(() => newMember.user);
-        bannerUrl = fullUser.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-      } catch {
-        bannerUrl = newMember.user.bannerURL?.({ extension: "png", size: 1024 }) ?? null;
-      }
-      const avatarUrl = newMember.user.displayAvatarURL ? newMember.user.displayAvatarURL({ extension: "png", size: 1024 }) : null;
+      const avatarUrl = newMember.user.displayAvatarURL({ extension: "png", size: 1024 }) ?? null;
 
       const replacements = {
         user: `<@${newMember.id}>`,
         username: newMember.user.username,
-        server: newMember.guild?.name ?? "",
+        server: newMember.guild.name,
         avatar: avatarUrl ?? "",
-        banner: bannerUrl ?? ""
+        banner: "" // no insertamos URL en texto
       };
       const content = formatTemplate(templateRaw, replacements);
 
@@ -279,14 +231,13 @@ export async function handleBoost(oldMember, newMember) {
         .setColor(0xFAA61A)
         .setTitle("¡Nuevo Boost!")
         .setDescription(content)
-        .setThumbnail(avatarUrl ?? undefined)
+        .setThumbnail(avatarUrl)
         .setTimestamp();
 
       if (templateRaw.includes("{banner}") && bannerUrl) embed.setImage(bannerUrl);
       else if (avatarUrl) embed.setImage(avatarUrl);
 
       const components = [];
-      const url = guildCfg.boostUrl ?? null;
       if (url && /^https?:\/\//i.test(url)) {
         components.push(new ActionRowBuilder().addComponents(
           new ButtonBuilder().setLabel("Ver más").setStyle(ButtonStyle.Link).setURL(url)
@@ -575,21 +526,24 @@ async function handleSlashCommands(interaction, client) {
       return interaction.reply({ content: "✅ Canal de castigos configurado.", ephemeral: true });
     }
 
-    case "setchannelbienvenidas": {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
-      }
-      const canal = interaction.options.getChannel("canal");
-      const mensaje = interaction.options.getString("mensaje") ?? null;
-      const url = interaction.options.getString("url") ?? null;
+   case "setchannelbienvenidas": {
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Solo administradores pueden usar este comando.", ephemeral: true });
+  }
+  const canal = interaction.options.getChannel("canal");
+  const mensaje = interaction.options.getString("mensaje") ?? null;
+  const bannerUrl = interaction.options.getString("banner_url") ?? null;
+  const url = interaction.options.getString("url") ?? null;
 
-      config.channels[interaction.guild.id] ??= {};
-      config.channels[interaction.guild.id].bienvenidas = canal.id;
-      if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
-      if (url !== null && url !== "") config.channels[interaction.guild.id].bienvenidasUrl = url;
-      saveConfig();
-      return interaction.reply({ content: "✅ Canal, plantilla y URL (si se proporcionó) configurados.", ephemeral: true });
-    }
+  config.channels[interaction.guild.id] ??= {};
+  config.channels[interaction.guild.id].bienvenidas = canal.id;
+  if (mensaje !== null) config.channels[interaction.guild.id].bienvenidasMessage = mensaje;
+  if (bannerUrl !== null && bannerUrl !== "") config.channels[interaction.guild.id].bienvenidasBanner = bannerUrl;
+  if (url !== null && url !== "") config.channels[interaction.guild.id].bienvenidasUrl = url;
+  saveConfig();
+
+  return interaction.reply({ content: "✅ Canal, plantilla, banner y URL configurados.", ephemeral: true });
+}
 
     case "setchanneldespedidas": {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
