@@ -176,24 +176,39 @@ function isValidUrl(url) {
 ========================== */
 
 /**
- * Convierte enlaces de Tenor en una URL de imagen.
- * Si no es Tenor, devuelve la URL original.
+ * Convierte enlaces de Tenor en una URL de imagen/GIF.
+ * También acepta enlaces directos.
  */
 async function resolveImageUrl(url) {
 
     if (!url)
         return null;
 
-    // No es Tenor
-    if (!url.includes("tenor.com"))
+    url = url.trim();
+
+    // Si ya es una imagen/GIF directa
+    if (
+        /\.(gif|png|jpe?g|webp)(\?.*)?$/i.test(url)
+    ) {
         return url;
+    }
+
+    // No es Tenor
+    if (
+        !url.includes("tenor.com") &&
+        !url.includes("tenor.co") &&
+        !url.includes("media.tenor.com")
+    ) {
+        return url;
+    }
 
     try {
 
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0"
-            }
+            },
+            redirect: "follow"
         });
 
         if (!response.ok)
@@ -201,28 +216,50 @@ async function resolveImageUrl(url) {
 
         const html = await response.text();
 
-        // Buscar og:image:secure_url
-        let match = html.match(
-            /<meta\s+property="og:image:secure_url"\s+content="([^"]+)"/i
+        // Intentar obtener un GIF
+        const gifMatch =
+            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.gif/gi);
+
+        if (gifMatch?.length)
+            return gifMatch[0];
+
+        // Intentar obtener WEBP
+        const webpMatch =
+            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.webp/gi);
+
+        if (webpMatch?.length)
+            return webpMatch[0];
+
+        // og:image:secure_url
+        let meta = html.match(
+            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i
         );
 
-        // Si no existe, buscar og:image
-        if (!match) {
+        if (meta)
+            return meta[1];
 
-            match = html.match(
-                /<meta\s+property="og:image"\s+content="([^"]+)"/i
-            );
+        // og:image
+        meta = html.match(
+            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+        );
 
-        }
+        if (meta)
+            return meta[1];
 
-        if (!match)
-            return null;
+        // twitter:image
+        meta = html.match(
+            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i
+        );
 
-        return match[1];
+        if (meta)
+            return meta[1];
+
+        return null;
 
     } catch (err) {
 
-        console.error("[Tenor]", err);
+        console.error("[resolveImageUrl]", err);
+
         return null;
 
     }
@@ -1270,15 +1307,35 @@ async function cmdSetChannelBienvenidas(interaction) {
 
         const guildConfig = getGuildConfig(interaction.guild.id);
 
+        guildConfig.welcome ??= {};
+
+        // Guardar el canal donde realmente lo busca sendWelcome()
+        guildConfig.welcome.channel = channel.id;
+
+        // Compatibilidad con configuraciones antiguas
         guildConfig.bienvenidas = channel.id;
 
         saveConfig();
 
+        const embed = new EmbedBuilder()
+
+            .setColor(0x57F287)
+
+            .setTitle("✅ Canal de bienvenida actualizado")
+
+            .setDescription(
+                `Los mensajes de bienvenida se enviarán en ${channel}.`
+            )
+
+            .setFooter({
+                text: interaction.guild.name
+            })
+
+            .setTimestamp();
+
         await interaction.reply({
 
-            content:
-                `✅ El canal de bienvenida se configuró correctamente.\n\n` +
-                `📢 Canal: ${channel}`,
+            embeds: [embed],
 
             ephemeral: true
 
@@ -1308,47 +1365,122 @@ async function cmdSetChannelBienvenidas(interaction) {
 }
 
 /* ==========================
-    SetWelcomeMe
+        SetWelcome
 ========================== */
 
 async function cmdSetWelcome(interaction) {
 
-    const guildConfig = getGuildConfig(interaction.guild.id);
+    try {
 
-    guildConfig.welcome ??= {};
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
 
-    const mensaje =
-        interaction.options.getString("mensaje");
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador**."
+            );
 
-    let banner =
-        interaction.options.getString("banner");
+        }
 
-    if (banner) {
+        const guildConfig = getGuildConfig(interaction.guild.id);
 
-    banner = await resolveImageUrl(banner);
+        guildConfig.welcome ??= {};
 
-    if (!banner)
-        return placeholder(
-            interaction,
-            "❌ No pude obtener la imagen."
-        );
+        // Mantener el canal ya configurado
+        if (!guildConfig.welcome.channel && guildConfig.bienvenidas) {
+            guildConfig.welcome.channel = guildConfig.bienvenidas;
+        }
 
-    if (!isValidUrl(banner))
-        return placeholder(
-            interaction,
-            "❌ La URL de la imagen no es válida."
-        );
+        const mensaje = interaction.options.getString("mensaje");
+        let banner = interaction.options.getString("banner");
 
-    guildConfig.welcome.banner = banner;
+        // Guardar mensaje
+        if (mensaje) {
+            guildConfig.welcome.message = mensaje;
+        }
+
+        // Guardar banner
+        if (banner) {
+
+            banner = await resolveImageUrl(banner);
+
+            if (!banner) {
+
+                return placeholder(
+                    interaction,
+                    "❌ No pude obtener la imagen del enlace."
+                );
+
+            }
+
+            if (!isValidUrl(banner)) {
+
+                return placeholder(
+                    interaction,
+                    "❌ La URL obtenida no es válida."
+                );
+
+            }
+
+            guildConfig.welcome.banner = banner;
+
+        }
+
+        saveConfig();
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0x57F287)
+
+            .setTitle("✅ Bienvenida configurada")
+
+            .setDescription(
+                [
+                    guildConfig.welcome.channel
+                        ? `📢 Canal: <#${guildConfig.welcome.channel}>`
+                        : "⚠️ Aún no has configurado un canal.",
+
+                    mensaje
+                        ? "💬 Mensaje actualizado."
+                        : "💬 Mensaje sin cambios.",
+
+                    banner
+                        ? "🖼️ Banner actualizado."
+                        : "🖼️ Banner sin cambios."
+                ].join("\n")
+            )
+
+            .setTimestamp();
+
+        if (guildConfig.welcome.banner) {
+            embed.setImage(guildConfig.welcome.banner);
+        }
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en cmdSetWelcome:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar la bienvenida.",
+
+                ephemeral: true
+
+            });
+
+        }
 
     }
-
-    saveConfig();
-
-    return placeholder(
-        interaction,
-        "✅ Bienvenida configurada."
-    );
 
 }
 
@@ -1400,27 +1532,35 @@ async function cmdSetChannelDespedidas(interaction) {
 
         const guildConfig = getGuildConfig(interaction.guild.id);
 
+        guildConfig.farewell ??= {};
+
+        // Guardar donde realmente lo busca sendFarewell()
+        guildConfig.farewell.channel = channel.id;
+
+        // Compatibilidad con configuraciones antiguas
         guildConfig.despedidas = channel.id;
 
         saveConfig();
 
+        const embed = new EmbedBuilder()
+
+            .setColor(0xED4245)
+
+            .setTitle("✅ Canal de despedidas actualizado")
+
+            .setDescription(
+                `Los mensajes de despedida se enviarán en ${channel}.`
+            )
+
+            .setFooter({
+                text: interaction.guild.name
+            })
+
+            .setTimestamp();
+
         await interaction.reply({
 
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0x57F287)
-
-                    .setTitle("✅ Canal de despedidas actualizado")
-
-                    .setDescription(
-                        `Las despedidas se enviarán en ${channel}.`
-                    )
-
-                    .setTimestamp()
-
-            ],
+            embeds: [embed],
 
             ephemeral: true
 
@@ -1450,47 +1590,122 @@ async function cmdSetChannelDespedidas(interaction) {
 }
 
 /* ==========================
-    SetFarewell
+        SetFarewell
 ========================== */
 
 async function cmdSetFarewell(interaction) {
 
-    const guildConfig = getGuildConfig(interaction.guild.id);
+    try {
 
-    guildConfig.farewell ??= {};
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
 
-    const mensaje =
-        interaction.options.getString("mensaje");
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador**."
+            );
 
-    let banner =
-        interaction.options.getString("banner");
+        }
 
-    if (banner) {
+        const guildConfig = getGuildConfig(interaction.guild.id);
 
-    banner = await resolveImageUrl(banner);
+        guildConfig.farewell ??= {};
 
-    if (!banner)
-        return placeholder(
-            interaction,
-            "❌ No pude obtener la imagen."
-        );
+        // Mantener el canal configurado anteriormente
+        if (!guildConfig.farewell.channel && guildConfig.despedidas) {
+            guildConfig.farewell.channel = guildConfig.despedidas;
+        }
 
-    if (!isValidUrl(banner))
-        return placeholder(
-            interaction,
-            "❌ La URL de la imagen no es válida."
-        );
+        const mensaje = interaction.options.getString("mensaje");
+        let banner = interaction.options.getString("banner");
 
-    guildConfig.farewell.banner = banner;
+        // Guardar mensaje
+        if (mensaje) {
+            guildConfig.farewell.message = mensaje;
+        }
+
+        // Guardar banner
+        if (banner) {
+
+            banner = await resolveImageUrl(banner);
+
+            if (!banner) {
+
+                return placeholder(
+                    interaction,
+                    "❌ No pude obtener la imagen del enlace."
+                );
+
+            }
+
+            if (!isValidUrl(banner)) {
+
+                return placeholder(
+                    interaction,
+                    "❌ La URL obtenida no es válida."
+                );
+
+            }
+
+            guildConfig.farewell.banner = banner;
+
+        }
+
+        saveConfig();
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0xED4245)
+
+            .setTitle("✅ Despedida configurada")
+
+            .setDescription(
+                [
+                    guildConfig.farewell.channel
+                        ? `📢 Canal: <#${guildConfig.farewell.channel}>`
+                        : "⚠️ Aún no has configurado un canal.",
+
+                    mensaje
+                        ? "💬 Mensaje actualizado."
+                        : "💬 Mensaje sin cambios.",
+
+                    banner
+                        ? "🖼️ Banner actualizado."
+                        : "🖼️ Banner sin cambios."
+                ].join("\n")
+            )
+
+            .setTimestamp();
+
+        if (guildConfig.farewell.banner) {
+            embed.setImage(guildConfig.farewell.banner);
+        }
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en cmdSetFarewell:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar la despedida.",
+
+                ephemeral: true
+
+            });
+
+        }
 
     }
-
-    saveConfig();
-
-    return placeholder(
-        interaction,
-        "✅ Despedida configurada."
-    );
 
 }
 
@@ -1542,27 +1757,35 @@ async function cmdSetChannelBoost(interaction) {
 
         const guildConfig = getGuildConfig(interaction.guild.id);
 
-        guildConfig.boost = channel.id;
+        // Si anteriormente boost era un string, convertirlo a objeto
+        if (!guildConfig.boost || typeof guildConfig.boost !== "object") {
+            guildConfig.boost = {};
+        }
+
+        // Guardar el canal donde realmente lo busca handleBoost()
+        guildConfig.boost.channel = channel.id;
 
         saveConfig();
 
+        const embed = new EmbedBuilder()
+
+            .setColor(0xF47FFF)
+
+            .setTitle("✅ Canal de boosts actualizado")
+
+            .setDescription(
+                `Los mensajes de boost se enviarán en ${channel}.`
+            )
+
+            .setFooter({
+                text: interaction.guild.name
+            })
+
+            .setTimestamp();
+
         await interaction.reply({
 
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0xFF73FA)
-
-                    .setTitle("✅ Canal de boosts actualizado")
-
-                    .setDescription(
-                        `Los mensajes de boost se enviarán en ${channel}.`
-                    )
-
-                    .setTimestamp()
-
-            ],
+            embeds: [embed],
 
             ephemeral: true
 
@@ -1579,7 +1802,7 @@ async function cmdSetChannelBoost(interaction) {
 
             await interaction.reply({
 
-                content: "❌ Ocurrió un error al configurar el canal.",
+                content: "❌ Ocurrió un error al configurar el canal de boosts.",
 
                 ephemeral: true
 
@@ -1592,48 +1815,128 @@ async function cmdSetChannelBoost(interaction) {
 }
 
 /* ==========================
-      SetBoostMessage
+        SetBoost
 ========================== */
 
 async function cmdSetBoost(interaction) {
 
-    const guildConfig = getGuildConfig(interaction.guild.id);
+    try {
 
-    guildConfig.boost ??= {};
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
 
-    const mensaje =
-        interaction.options.getString("mensaje");
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador**."
+            );
 
-    let banner =
-        interaction.options.getString("banner");
+        }
 
-    if (mensaje)
-    if (banner) {
+        const guildConfig = getGuildConfig(interaction.guild.id);
 
-    banner = await resolveImageUrl(banner);
+        guildConfig.boost ??= {};
 
-    if (!banner)
-        return placeholder(
-            interaction,
-            "❌ No pude obtener la imagen."
-        );
+        // Mantener el canal configurado
+        if (
+            !guildConfig.boost.channel &&
+            typeof guildConfig.boost !== "string"
+        ) {
+            // No hacer nada
+        }
 
-    if (!isValidUrl(banner))
-        return placeholder(
-            interaction,
-            "❌ La URL de la imagen no es válida."
-        );
+        const mensaje =
+            interaction.options.getString("mensaje");
 
-    guildConfig.boost.banner = banner;
+        let banner =
+            interaction.options.getString("banner");
+
+        // Guardar mensaje
+        if (mensaje) {
+            guildConfig.boost.message = mensaje;
+        }
+
+        // Guardar banner
+        if (banner) {
+
+            banner = await resolveImageUrl(banner);
+
+            if (!banner) {
+
+                return placeholder(
+                    interaction,
+                    "❌ No pude obtener la imagen del enlace."
+                );
+
+            }
+
+            if (!isValidUrl(banner)) {
+
+                return placeholder(
+                    interaction,
+                    "❌ La URL obtenida no es válida."
+                );
+
+            }
+
+            guildConfig.boost.banner = banner;
+
+        }
+
+        saveConfig();
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0xF47FFF)
+
+            .setTitle("✅ Mensaje de boost configurado")
+
+            .setDescription(
+                [
+                    guildConfig.boost.channel
+                        ? `📢 Canal: <#${guildConfig.boost.channel}>`
+                        : "⚠️ Aún no has configurado un canal de boosts.",
+
+                    mensaje
+                        ? "💬 Mensaje actualizado."
+                        : "💬 Mensaje sin cambios.",
+
+                    banner
+                        ? "🖼️ Banner actualizado."
+                        : "🖼️ Banner sin cambios."
+                ].join("\n")
+            )
+
+            .setTimestamp();
+
+        if (guildConfig.boost.banner) {
+            embed.setImage(guildConfig.boost.banner);
+        }
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en cmdSetBoost:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar el mensaje de boost.",
+
+                ephemeral: true
+
+            });
+
+        }
 
     }
-
-    saveConfig();
-
-    return placeholder(
-        interaction,
-        "✅ Boost configurado."
-    );
 
 }
 
