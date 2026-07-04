@@ -1552,34 +1552,818 @@ async function cmdSetWelcomeURL(interaction) {
    SetChannelDespedidas
 ========================== */
 
-/* ==========================
-   SetFarewellMessage
-========================== */
+/**
+ * Comando /setchanneldespedidas
+ */
+async function cmdSetChannelDespedidas(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const channel = interaction.options.getChannel("canal");
+
+        if (!channel) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes seleccionar un canal."
+            );
+
+        }
+
+        if (!channel.isTextBased()) {
+
+            return placeholder(
+                interaction,
+                "❌ El canal debe permitir enviar mensajes."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.despedidas = channel.id;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0x57F287)
+
+                    .setTitle("✅ Canal de despedidas actualizado")
+
+                    .setDescription(
+                        `Las despedidas se enviarán en ${channel}.`
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`Canal de despedidas configurado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetChannelDespedidas:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar el canal.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
 
 /* ==========================
-     SetFarewellURL
+    SetFarewellMessage
 ========================== */
+
+/**
+ * Comando /setfarewellmessage
+ */
+async function cmdSetFarewellMessage(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const message = interaction.options.getString("mensaje");
+
+        if (!message) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes escribir un mensaje."
+            );
+
+        }
+
+        if (message.length > 2000) {
+
+            return placeholder(
+                interaction,
+                "❌ El mensaje no puede superar los 2000 caracteres."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.despedidasMessage = message;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xED4245)
+
+                    .setTitle("✅ Mensaje de despedida actualizado")
+
+                    .setDescription(
+                        [
+                            "**Nuevo mensaje:**",
+                            "",
+                            `>>> ${message}`,
+                            "",
+                            "**Placeholders disponibles:**",
+                            "`{user}` • Menciona al usuario",
+                            "`{username}` • Nombre del usuario",
+                            "`{server}` • Nombre del servidor",
+                            "`{avatar}` • URL del avatar",
+                            "`{banner}` • URL del banner"
+                        ].join("\n")
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`Mensaje de despedida actualizado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetFarewellMessage:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar el mensaje.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+       SetFarewellURL
+========================== */
+
+/**
+ * Comando /setfarewellurl
+ */
+async function cmdSetFarewellURL(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const url = interaction.options.getString("url");
+
+        if (!isValidUrl(url)) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes proporcionar una URL válida (https://...)."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.despedidasUrl = url;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xED4245)
+
+                    .setTitle("✅ URL de despedida actualizada")
+
+                    .setDescription(
+                        `La URL del botón de despedida ahora es:\n\n${url}`
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`URL de despedida actualizada en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetFarewellURL:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar la URL.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
 
 /* ==========================
       SetChannelBoost
 ========================== */
 
+/**
+ * Comando /setchannelboost
+ */
+async function cmdSetChannelBoost(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const channel = interaction.options.getChannel("canal");
+
+        if (!channel) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes seleccionar un canal."
+            );
+
+        }
+
+        if (!channel.isTextBased()) {
+
+            return placeholder(
+                interaction,
+                "❌ El canal debe permitir enviar mensajes."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.boost = channel.id;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xFF73FA)
+
+                    .setTitle("✅ Canal de boosts actualizado")
+
+                    .setDescription(
+                        `Los mensajes de boost se enviarán en ${channel}.`
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`Canal de boosts configurado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetChannelBoost:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar el canal.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
 /* ==========================
       SetBoostMessage
 ========================== */
+
+/**
+ * Comando /setboostmessage
+ */
+async function cmdSetBoostMessage(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const message = interaction.options.getString("mensaje");
+
+        if (!message) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes escribir un mensaje."
+            );
+
+        }
+
+        if (message.length > 2000) {
+
+            return placeholder(
+                interaction,
+                "❌ El mensaje no puede superar los 2000 caracteres."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.boostMessage = message;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xFF73FA)
+
+                    .setTitle("✅ Mensaje de boost actualizado")
+
+                    .setDescription(
+                        [
+                            "**Nuevo mensaje:**",
+                            "",
+                            `>>> ${message}`,
+                            "",
+                            "**Placeholders disponibles:**",
+                            "`{user}` • Menciona al usuario",
+                            "`{username}` • Nombre del usuario",
+                            "`{server}` • Nombre del servidor",
+                            "`{avatar}` • URL del avatar",
+                            "`{banner}` • URL del banner"
+                        ].join("\n")
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`Mensaje de boost actualizado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetBoostMessage:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar el mensaje.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
 
 /* ==========================
         SetBoostURL
 ========================== */
 
+/**
+ * Comando /setboosturl
+ */
+async function cmdSetBoostURL(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const url = interaction.options.getString("url");
+
+        if (!isValidUrl(url)) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes proporcionar una URL válida (https://...)."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.boostUrl = url;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xFF73FA)
+
+                    .setTitle("✅ URL de boost actualizada")
+
+                    .setDescription(
+                        `La URL del botón de boost ahora es:\n\n${url}`
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`URL de boost actualizada en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetBoostURL:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar la URL.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
 /* ==========================
            Ticket
 ========================== */
+
+/**
+ * Comando /ticket
+ */
+async function cmdTicket(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0x5865F2)
+
+            .setTitle("🎫 Centro de Soporte")
+
+            .setDescription(
+                [
+                    "¿Necesitas ayuda?",
+                    "",
+                    "Pulsa el botón de abajo para crear un ticket privado.",
+                    "",
+                    "Un miembro del equipo te atenderá lo antes posible."
+                ].join("\n")
+            )
+
+            // Puedes cambiar esta URL por el banner que quieras
+            .setImage("https://TU-BANNER-AQUI.png")
+
+            .setFooter({
+
+                text: interaction.guild.name,
+
+                iconURL: interaction.guild.iconURL()
+
+            })
+
+            .setTimestamp();
+
+        const row = new ActionRowBuilder()
+
+            .addComponents(
+
+                new ButtonBuilder()
+
+                    .setCustomId("ticket_create")
+
+                    .setLabel("Crear Ticket")
+
+                    .setEmoji("🎫")
+
+                    .setStyle(ButtonStyle.Primary)
+
+            );
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            components: [row]
+
+        });
+
+        log(`Panel de tickets enviado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdTicket:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al enviar el panel de tickets.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
 
 /* ==========================
      Función Principal
 ========================== */
 
+/**
+ * Maneja todos los Slash Commands.
+ */
+async function handleSlashCommands(interaction, client) {
+
+    try {
+
+        switch (interaction.commandName) {
+
+            /* ==========================
+                    Generales
+            ========================== */
+
+            case "ping":
+                return await cmdPing(interaction);
+
+            case "help":
+                return await cmdHelp(interaction);
+
+            /* ==========================
+                Bienvenidas
+            ========================== */
+
+            case "setchannelbienvenidas":
+                return await cmdSetChannelBienvenidas(interaction);
+
+            case "setwelcomemessage":
+                return await cmdSetWelcomeMessage(interaction);
+
+            case "setwelcomeurl":
+                return await cmdSetWelcomeURL(interaction);
+
+            /* ==========================
+                 Despedidas
+            ========================== */
+
+            case "setchanneldespedidas":
+                return await cmdSetChannelDespedidas(interaction);
+
+            case "setfarewellmessage":
+                return await cmdSetFarewellMessage(interaction);
+
+            case "setfarewellurl":
+                return await cmdSetFarewellURL(interaction);
+
+            /* ==========================
+                    Boost
+            ========================== */
+
+            case "setchannelboost":
+                return await cmdSetChannelBoost(interaction);
+
+            case "setboostmessage":
+                return await cmdSetBoostMessage(interaction);
+
+            case "setboosturl":
+                return await cmdSetBoostURL(interaction);
+
+            /* ==========================
+                   Tickets
+            ========================== */
+
+            case "ticket":
+                return await cmdTicket(interaction);
+
+            default:
+
+                return interaction.reply({
+
+                    content: "❌ Ese comando aún no está implementado.",
+
+                    ephemeral: true
+
+                });
+
+        }
+
+    } catch (err) {
+
+        console.error("Error en handleSlashCommands:");
+        console.error(err);
+
+        if (
+            interaction.isRepliable() &&
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al ejecutar este comando.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+        executeLogic
+========================== */
+
+/**
+ * Punto de entrada principal de las interacciones.
+ */
+export async function executeLogic(interaction, client) {
+
+    try {
+
+        if (interaction.isButton()) {
+
+            return await handleButtons(interaction);
+
+        }
+
+        if (interaction.isChatInputCommand()) {
+
+            return await handleSlashCommands(interaction, client);
+
+        }
+
+    } catch (err) {
+
+        console.error("Error en executeLogic:");
+        console.error(err);
+
+        if (
+            interaction.isRepliable() &&
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error interno.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
 /* ==========================
           EXPORTS
 ========================== */
+
+export {
+
+    config,
+
+    executeLogic,
+
+    sendWelcome,
+
+    sendFarewell,
+
+    handleBoost,
+
+    ensureCounterChannel
+
+};
