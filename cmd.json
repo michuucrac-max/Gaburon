@@ -72,28 +72,29 @@
 },
 {
   "name": "setchannelbienvenidas",
-  "description": "Configurar canal, plantilla y banner de bienvenidas",
+  "description": "Configurar canal, plantilla y botón URL de bienvenidas",
   "options": [
     { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar}, {banner})", "required": false },
-    { "type": "string", "name": "banner_url", "description": "URL de la imagen/banner personalizado", "required": false },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
     { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
   ]
 },
-  {
-    "name": "setchanneldespedidas",
-    "description": "Configurar canal y plantilla de despedidas",
-    "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-      { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server})", "required": false }
-    ]
-  },
-  {
-    "name": "setchannelboost",
-    "description": "Configurar canal y plantilla para boosts",
-    "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-      { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server})", "required": false }
-    ]
-  }
+{
+  "name": "setchanneldespedidas",
+  "description": "Configurar canal, plantilla y botón URL de despedidas",
+  "options": [
+    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
+    { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
+  ]
+},
+{
+  "name": "setchannelboost",
+  "description": "Configurar canal, plantilla y botón URL para boosts",
+  "options": [
+    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
+    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
+    { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
+  ]
+}
 ]
