@@ -1,100 +1,206 @@
 [
   {
+    "name": "ping",
+    "description": "Ver la latencia del bot"
+  },
+  {
+    "name": "help",
+    "description": "Mostrar la lista de comandos"
+  },
+  {
+    "name": "ticket",
+    "description": "Enviar el panel de tickets"
+  },
+  {
     "name": "anuncio",
-    "description": "Emitir anuncio oficial",
+    "description": "Emitir un anuncio oficial",
     "options": [
-      { "type": "string", "name": "mensaje", "description": "Mensaje", "required": true }
+      {
+        "type": "string",
+        "name": "mensaje",
+        "description": "Mensaje del anuncio",
+        "required": true
+      }
     ]
   },
   {
     "name": "alianza",
-    "description": "Registrar alianza",
+    "description": "Registrar una alianza",
     "options": [
-      { "type": "string", "name": "servidor", "description": "Servidor", "required": true },
-      { "type": "string", "name": "descripcion", "description": "Descripción", "required": true }
+      {
+        "type": "string",
+        "name": "servidor",
+        "description": "Nombre del servidor",
+        "required": true
+      },
+      {
+        "type": "string",
+        "name": "descripcion",
+        "description": "Descripción de la alianza",
+        "required": true
+      }
     ]
   },
   {
     "name": "castigar",
-    "description": "Ejecutar sentencia del Abismo",
+    "description": "Ejecutar una sentencia del Abismo",
     "options": [
-      { "type": "user", "name": "usuario", "description": "Entidad", "required": true },
-      { "type": "string", "name": "castigo", "description": "Tipo de castigo", "required": true }
+      {
+        "type": "user",
+        "name": "usuario",
+        "description": "Usuario a castigar",
+        "required": true
+      },
+      {
+        "type": "string",
+        "name": "castigo",
+        "description": "Tipo de castigo",
+        "required": true
+      }
     ]
   },
   {
     "name": "createhuman",
-    "description": "Crear contador de humanos"
+    "description": "Crear el contador de humanos"
   },
   {
     "name": "createbot",
-    "description": "Crear contador de bots"
+    "description": "Crear el contador de bots"
+  },
+  {
+    "name": "infosetchannels",
+    "description": "Mostrar información sobre los comandos de configuración"
+  },
+  {
+    "name": "setchannelbienvenidas",
+    "description": "Configurar canal, mensaje y botón URL de bienvenida",
+    "options": [
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal de bienvenida",
+        "required": true
+      },
+      {
+        "type": "string",
+        "name": "mensaje",
+        "description": "Mensaje personalizado (opcional)",
+        "required": false
+      },
+      {
+        "type": "string",
+        "name": "url",
+        "description": "URL del botón (opcional)",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "setchanneldespedidas",
+    "description": "Configurar canal, mensaje y botón URL de despedida",
+    "options": [
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal de despedidas",
+        "required": true
+      },
+      {
+        "type": "string",
+        "name": "mensaje",
+        "description": "Mensaje personalizado (opcional)",
+        "required": false
+      },
+      {
+        "type": "string",
+        "name": "url",
+        "description": "URL del botón (opcional)",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "setchannelboost",
+    "description": "Configurar canal, mensaje y botón URL para boosts",
+    "options": [
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal de boosts",
+        "required": true
+      },
+      {
+        "type": "string",
+        "name": "mensaje",
+        "description": "Mensaje personalizado (opcional)",
+        "required": false
+      },
+      {
+        "type": "string",
+        "name": "url",
+        "description": "URL del botón (opcional)",
+        "required": false
+      }
+    ]
   },
   {
     "name": "setchanneltikets",
-    "description": "Configurar canal de tickets",
+    "description": "Configurar el canal donde se enviará el panel de tickets",
     "options": [
-      { "type": "channel", "name": "canal", "description": "Canal de tickets", "required": true }
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal",
+        "required": true
+      }
     ]
   },
   {
     "name": "settoptop",
-    "description": "Configurar canal de tops",
+    "description": "Configurar el canal de tops",
     "options": [
-      { "type": "channel", "name": "canal", "description": "Canal de tops", "required": true }
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal",
+        "required": true
+      }
     ]
   },
   {
     "name": "setchannelanuncios",
-    "description": "Configurar canal anuncios",
+    "description": "Configurar el canal de anuncios",
     "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal",
+        "required": true
+      }
     ]
   },
   {
     "name": "setchannelcastigos",
-    "description": "Configurar canal castigos",
+    "description": "Configurar el canal de castigos",
     "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal",
+        "required": true
+      }
     ]
   },
- 
   {
     "name": "setchannelalianzas",
-    "description": "Configurar canal alianzas",
+    "description": "Configurar el canal de alianzas",
     "options": [
-      { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true }
+      {
+        "type": "channel",
+        "name": "canal",
+        "description": "Canal",
+        "required": true
+      }
     ]
-  },
-  {
-  "name": "infosetchannels",
-  "description": "Ver configuración de canales y cómo usar los comandos referentes"
-},
-{
-  "name": "setchannelbienvenidas",
-  "description": "Configurar canal, plantilla y botón URL de bienvenidas",
-  "options": [
-    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
-    { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
-  ]
-},
-{
-  "name": "setchanneldespedidas",
-  "description": "Configurar canal, plantilla y botón URL de despedidas",
-  "options": [
-    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
-    { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
-  ]
-},
-{
-  "name": "setchannelboost",
-  "description": "Configurar canal, plantilla y botón URL para boosts",
-  "options": [
-    { "type": "channel", "name": "canal", "description": "Seleccionar canal", "required": true },
-    { "type": "string", "name": "mensaje", "description": "Plantilla (usa {user}, {username}, {server}, {avatar})", "required": false },
-    { "type": "string", "name": "url", "description": "Botón URL opcional (https://...)", "required": false }
-  ]
-}
+  }
 ]
