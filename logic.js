@@ -125,9 +125,8 @@ function placeholder(interaction, text) {
  * {user}
  * {username}
  * {server}
- * {avatar}
- * {banner}
  */
+
 function formatTemplate(template, member) {
 
     if (!template)
@@ -136,15 +135,7 @@ function formatTemplate(template, member) {
     return template
         .replaceAll("{user}", `<@${member.id}>`)
         .replaceAll("{username}", member.user.username)
-        .replaceAll("{server}", member.guild.name)
-        .replaceAll(
-            "{avatar}",
-            member.user.displayAvatarURL({
-                extension: "png",
-                size: 1024
-            })
-        )
-        .replaceAll("{banner}", "");
+        .replaceAll("{server}", member.guild.name);
 
 }
 
@@ -174,29 +165,6 @@ function isValidUrl(url) {
         return false;
 
     }
-
-}
-
-/* ==========================
-      Crear Botón URL
-========================== */
-
-/**
- * Crea un botón de tipo Link.
- */
-function createUrlButton(url, label = "Abrir enlace") {
-
-    if (!isValidUrl(url))
-        return [];
-
-    return [
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setStyle(ButtonStyle.Link)
-                .setLabel(label)
-                .setURL(url)
-        )
-    ];
 
 }
 
@@ -237,81 +205,49 @@ function log(...args) {
  */
 export async function sendWelcome(member) {
 
-    try {
+    const data = getGuildConfig(member.guild.id).welcome;
 
-        const guildConfig = getGuildConfig(member.guild.id);
+    if (!data?.channel)
+        return;
 
-        if (!guildConfig.bienvenidas)
-            return;
+    const channel = member.guild.channels.cache.get(data.channel);
 
-        const channel = await member.guild.channels
-            .fetch(guildConfig.bienvenidas)
-            .catch(() => null);
+    if (!channel)
+        return;
 
-        if (!channel)
-            return log("Canal de bienvenida no encontrado.");
+    const embed = new EmbedBuilder()
 
-        if (!channel.isTextBased())
-            return log("El canal de bienvenida no admite mensajes.");
+        .setColor(0x57F287)
 
-        const permissions = channel.permissionsFor(member.guild.members.me);
+        .setTitle("sistema gaburon|Bienvenida")
 
-        if (
-            !permissions?.has(PermissionsBitField.Flags.ViewChannel) ||
-            !permissions?.has(PermissionsBitField.Flags.SendMessages) ||
-            !permissions?.has(PermissionsBitField.Flags.EmbedLinks)
-        ) {
-
-            return log("Faltan permisos para enviar la bienvenida.");
-
-        }
-
-        const embed = new EmbedBuilder()
-
-            .setColor(0x57F287)
-
-            .setTitle("👋 ¡Nuevo miembro!")
-
-            .setDescription(
-                formatTemplate(
-                    guildConfig.bienvenidasMessage ??
-                    "¡Bienvenido {user} a **{server}**!",
-                    member
-                )
+        .setDescription(
+            formatTemplate(
+                data.message ??
+                "¡Bienvenido {user}!",
+                member
             )
+        )
 
-            .setThumbnail(
-                member.user.displayAvatarURL({
-                    extension: "png",
-                    size: 1024
-                })
-            )
-
-            .setFooter({
-                text: member.guild.name
+        .setThumbnail(
+            member.user.displayAvatarURL({
+                extension: "png",
+                size: 1024
             })
+        )
 
-            .setTimestamp();
+        .setFooter({
+            text: member.guild.name
+        })
 
-        await channel.send({
+        .setTimestamp();
 
-            embeds: [embed],
+    if (data.banner)
+        embed.setImage(data.banner);
 
-            components: createUrlButton(
-                guildConfig.bienvenidasUrl,
-                "🌐 Abrir enlace"
-            )
-
-        });
-
-        log(`Bienvenida enviada a ${member.user.tag}.`);
-
-    } catch (err) {
-
-        console.error("Error en sendWelcome:");
-        console.error(err);
-
-    }
+    await channel.send({
+        embeds: [embed]
+    });
 
 }
 
@@ -324,84 +260,51 @@ export async function sendWelcome(member) {
  */
 export async function sendFarewell(member) {
 
-    try {
+    const data = getGuildConfig(member.guild.id).farewell;
 
-        const guildConfig = getGuildConfig(member.guild.id);
+    if (!data?.channel)
+        return;
 
-        if (!guildConfig.despedidas)
-            return;
+    const channel = member.guild.channels.cache.get(data.channel);
 
-        const channel = await member.guild.channels
-            .fetch(guildConfig.despedidas)
-            .catch(() => null);
+    if (!channel)
+        return;
 
-        if (!channel)
-            return log("Canal de despedidas no encontrado.");
+    const embed = new EmbedBuilder()
 
-        if (!channel.isTextBased())
-            return log("El canal de despedidas no admite mensajes.");
+        .setColor(0xED4245)
 
-        const permissions = channel.permissionsFor(member.guild.members.me);
+        .setTitle("sistema gaburon|Despedida")
 
-        if (
-            !permissions?.has(PermissionsBitField.Flags.ViewChannel) ||
-            !permissions?.has(PermissionsBitField.Flags.SendMessages) ||
-            !permissions?.has(PermissionsBitField.Flags.EmbedLinks)
-        ) {
-
-            return log("Faltan permisos para enviar la despedida.");
-
-        }
-
-        const embed = new EmbedBuilder()
-
-            .setColor(0xED4245)
-
-            .setTitle("👋 ¡Hasta pronto!")
-
-            .setDescription(
-                formatTemplate(
-                    guildConfig.despedidasMessage ??
-                    "👋 {user} ha salido de **{server}**.",
-                    member
-                )
+        .setDescription(
+            formatTemplate(
+                data.message ??
+                "{user} abandonó el servidor.",
+                member
             )
+        )
 
-            .setThumbnail(
-                member.user.displayAvatarURL({
-                    extension: "png",
-                    size: 1024
-                })
-            )
-
-            .setFooter({
-                text: member.guild.name
+        .setThumbnail(
+            member.user.displayAvatarURL({
+                extension: "png",
+                size: 1024
             })
+        )
 
-            .setTimestamp();
+        .setFooter({
+            text: member.guild.name
+        })
 
-        await channel.send({
+        .setTimestamp();
 
-            embeds: [embed],
+    if (data.banner)
+        embed.setImage(data.banner);
 
-            components: createUrlButton(
-                guildConfig.despedidasUrl,
-                "🌐 Abrir enlace"
-            )
-
-        });
-
-        log(`Despedida enviada de ${member.user.tag}.`);
-
-    } catch (err) {
-
-        console.error("Error en sendFarewell:");
-        console.error(err);
-
-    }
+    await channel.send({
+        embeds: [embed]
+    });
 
 }
-
 /* ==========================
       Función: handleBoost
 ========================== */
@@ -411,85 +314,55 @@ export async function sendFarewell(member) {
  */
 export async function handleBoost(oldMember, newMember) {
 
-    try {
+    if (oldMember.premiumSince === newMember.premiumSince)
+        return;
 
-        // Solo continuar cuando el usuario acaba de dar boost
-        if (oldMember.premiumSince || !newMember.premiumSince)
-            return;
+    if (!newMember.premiumSince)
+        return;
 
-        const guildConfig = getGuildConfig(newMember.guild.id);
+    const data = getGuildConfig(newMember.guild.id).boost;
 
-        if (!guildConfig.boost)
-            return;
+    if (!data?.channel)
+        return;
 
-        const channel = await newMember.guild.channels
-            .fetch(guildConfig.boost)
-            .catch(() => null);
+    const channel = newMember.guild.channels.cache.get(data.channel);
 
-        if (!channel)
-            return log("Canal de boosts no encontrado.");
+    if (!channel)
+        return;
 
-        if (!channel.isTextBased())
-            return log("El canal de boosts no admite mensajes.");
+    const embed = new EmbedBuilder()
 
-        const permissions = channel.permissionsFor(newMember.guild.members.me);
+        .setColor(0xF47FFF)
 
-        if (
-            !permissions?.has(PermissionsBitField.Flags.ViewChannel) ||
-            !permissions?.has(PermissionsBitField.Flags.SendMessages) ||
-            !permissions?.has(PermissionsBitField.Flags.EmbedLinks)
-        ) {
+        .setTitle("sistema gaburon|mejora de servidor")
 
-            return log("Faltan permisos para enviar el mensaje de boost.");
-
-        }
-
-        const embed = new EmbedBuilder()
-
-            .setColor(0xFF73FA)
-
-            .setTitle("💎 ¡Nuevo Boost!")
-
-            .setDescription(
-                formatTemplate(
-                    guildConfig.boostMessage ??
-                    "💎 ¡{user} ha impulsado **{server}**!\n\n¡Muchas gracias por el apoyo!",
-                    newMember
-                )
+        .setDescription(
+            formatTemplate(
+                data.message ??
+                "¡{user} impulsó el servidor!",
+                newMember
             )
+        )
 
-            .setThumbnail(
-                newMember.user.displayAvatarURL({
-                    extension: "png",
-                    size: 1024
-                })
-            )
-
-            .setFooter({
-                text: newMember.guild.name
+        .setThumbnail(
+            newMember.user.displayAvatarURL({
+                extension: "png",
+                size: 1024
             })
+        )
 
-            .setTimestamp();
+        .setFooter({
+            text: newMember.guild.name
+        })
 
-        await channel.send({
+        .setTimestamp();
 
-            embeds: [embed],
+    if (data.banner)
+        embed.setImage(data.banner);
 
-            components: createUrlButton(
-                guildConfig.boostUrl,
-                "🌐 Abrir enlace"
-            )
-
-        });
-
-        log(`${newMember.user.tag} impulsó el servidor.`);
-
-    } catch (err) {
-
-        console.error("Error en handleBoost:");
-        console.error(err);
-
-    }
+    await channel.send({
+        embeds: [embed]
+    });
 
 }
 
@@ -1374,95 +1247,42 @@ async function cmdSetChannelBienvenidas(interaction) {
 }
 
 /* ==========================
-    SetWelcomeMessage
+    SetWelcomeMe
 ========================== */
 
-/**
- * Comando /setwelcomemessage
- */
-async function cmdSetWelcomeMessage(interaction) {
+async function cmdSetWelcome(interaction) {
 
-    try {
+    const guildConfig = getGuildConfig(interaction.guild.id);
 
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+    guildConfig.welcome ??= {};
 
+    const mensaje =
+        interaction.options.getString("mensaje");
+
+    const banner =
+        interaction.options.getString("banner");
+
+    if (mensaje)
+        guildConfig.welcome.message = mensaje;
+
+    if (banner) {
+
+        if (!isValidUrl(banner))
             return placeholder(
                 interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
+                "❌ La URL del banner no es válida."
             );
 
-        }
-
-        const message = interaction.options.getString("mensaje");
-
-        if (!message) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes escribir un mensaje."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.bienvenidasMessage = message;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0x57F287)
-
-                    .setTitle("✅ Mensaje de bienvenida actualizado")
-
-                    .setDescription(
-                        [
-                            "**Nuevo mensaje:**",
-                            "",
-                            `>>> ${message}`,
-                            "",
-                            "**Placeholders disponibles:**",
-                            "`{user}` • Menciona al usuario",
-                            "`{username}` • Nombre del usuario",
-                            "`{server}` • Nombre del servidor",
-                            "`{avatar}` • URL del avatar",
-                            "`{banner}` • URL del banner"
-                        ].join("\n")
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`Mensaje de bienvenida actualizado en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetWelcomeMessage:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar el mensaje.",
-
-                ephemeral: true
-
-            });
-
-        }
+        guildConfig.welcome.banner = banner;
 
     }
+
+    saveConfig();
+
+    return placeholder(
+        interaction,
+        "✅ Bienvenida configurada."
+    );
 
 }
 
@@ -1470,83 +1290,7 @@ async function cmdSetWelcomeMessage(interaction) {
        SetWelcomeURL
 ========================== */
 
-/**
- * Comando /setwelcomeurl
- */
-async function cmdSetWelcomeURL(interaction) {
 
-    try {
-
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
-
-            return placeholder(
-                interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
-            );
-
-        }
-
-        const url = interaction.options.getString("url");
-
-        if (!isValidUrl(url)) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes proporcionar una URL válida (https://...)."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.bienvenidasUrl = url;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0x57F287)
-
-                    .setTitle("✅ URL de bienvenida actualizada")
-
-                    .setDescription(
-                        `La URL del botón de bienvenida ahora es:\n\n${url}`
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`URL de bienvenida actualizada en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetWelcomeURL:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar la URL.",
-
-                ephemeral: true
-
-            });
-
-        }
-
-    }
-
-}
 
 /* ==========================
    SetChannelDespedidas
@@ -1640,104 +1384,42 @@ async function cmdSetChannelDespedidas(interaction) {
 }
 
 /* ==========================
-    SetFarewellMessage
+    SetFarewell
 ========================== */
 
-/**
- * Comando /setfarewellmessage
- */
-async function cmdSetFarewellMessage(interaction) {
+async function cmdSetFarewell(interaction) {
 
-    try {
+    const guildConfig = getGuildConfig(interaction.guild.id);
 
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+    guildConfig.farewell ??= {};
 
+    const mensaje =
+        interaction.options.getString("mensaje");
+
+    const banner =
+        interaction.options.getString("banner");
+
+    if (mensaje)
+        guildConfig.farewell.message = mensaje;
+
+    if (banner) {
+
+        if (!isValidUrl(banner))
             return placeholder(
                 interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
+                "❌ La URL del banner no es válida."
             );
 
-        }
-
-        const message = interaction.options.getString("mensaje");
-
-        if (!message) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes escribir un mensaje."
-            );
-
-        }
-
-        if (message.length > 2000) {
-
-            return placeholder(
-                interaction,
-                "❌ El mensaje no puede superar los 2000 caracteres."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.despedidasMessage = message;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0xED4245)
-
-                    .setTitle("✅ Mensaje de despedida actualizado")
-
-                    .setDescription(
-                        [
-                            "**Nuevo mensaje:**",
-                            "",
-                            `>>> ${message}`,
-                            "",
-                            "**Placeholders disponibles:**",
-                            "`{user}` • Menciona al usuario",
-                            "`{username}` • Nombre del usuario",
-                            "`{server}` • Nombre del servidor",
-                            "`{avatar}` • URL del avatar",
-                            "`{banner}` • URL del banner"
-                        ].join("\n")
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`Mensaje de despedida actualizado en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetFarewellMessage:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar el mensaje.",
-
-                ephemeral: true
-
-            });
-
-        }
+        guildConfig.farewell.banner = banner;
 
     }
+
+    saveConfig();
+
+    return placeholder(
+        interaction,
+        "✅ Despedida configurada."
+    );
 
 }
 
@@ -1745,83 +1427,7 @@ async function cmdSetFarewellMessage(interaction) {
        SetFarewellURL
 ========================== */
 
-/**
- * Comando /setfarewellurl
- */
-async function cmdSetFarewellURL(interaction) {
 
-    try {
-
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
-
-            return placeholder(
-                interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
-            );
-
-        }
-
-        const url = interaction.options.getString("url");
-
-        if (!isValidUrl(url)) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes proporcionar una URL válida (https://...)."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.despedidasUrl = url;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0xED4245)
-
-                    .setTitle("✅ URL de despedida actualizada")
-
-                    .setDescription(
-                        `La URL del botón de despedida ahora es:\n\n${url}`
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`URL de despedida actualizada en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetFarewellURL:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar la URL.",
-
-                ephemeral: true
-
-            });
-
-        }
-
-    }
-
-}
 
 /* ==========================
       SetChannelBoost
@@ -1918,101 +1524,39 @@ async function cmdSetChannelBoost(interaction) {
       SetBoostMessage
 ========================== */
 
-/**
- * Comando /setboostmessage
- */
-async function cmdSetBoostMessage(interaction) {
+async function cmdSetBoost(interaction) {
 
-    try {
+    const guildConfig = getGuildConfig(interaction.guild.id);
 
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+    guildConfig.boost ??= {};
 
+    const mensaje =
+        interaction.options.getString("mensaje");
+
+    const banner =
+        interaction.options.getString("banner");
+
+    if (mensaje)
+        guildConfig.boost.message = mensaje;
+
+    if (banner) {
+
+        if (!isValidUrl(banner))
             return placeholder(
                 interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
+                "❌ La URL del banner no es válida."
             );
 
-        }
-
-        const message = interaction.options.getString("mensaje");
-
-        if (!message) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes escribir un mensaje."
-            );
-
-        }
-
-        if (message.length > 2000) {
-
-            return placeholder(
-                interaction,
-                "❌ El mensaje no puede superar los 2000 caracteres."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.boostMessage = message;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0xFF73FA)
-
-                    .setTitle("✅ Mensaje de boost actualizado")
-
-                    .setDescription(
-                        [
-                            "**Nuevo mensaje:**",
-                            "",
-                            `>>> ${message}`,
-                            "",
-                            "**Placeholders disponibles:**",
-                            "`{user}` • Menciona al usuario",
-                            "`{username}` • Nombre del usuario",
-                            "`{server}` • Nombre del servidor",
-                            "`{avatar}` • URL del avatar",
-                            "`{banner}` • URL del banner"
-                        ].join("\n")
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`Mensaje de boost actualizado en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetBoostMessage:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar el mensaje.",
-
-                ephemeral: true
-
-            });
-
-        }
+        guildConfig.boost.banner = banner;
 
     }
+
+    saveConfig();
+
+    return placeholder(
+        interaction,
+        "✅ Boost configurado."
+    );
 
 }
 
@@ -2020,83 +1564,7 @@ async function cmdSetBoostMessage(interaction) {
         SetBoostURL
 ========================== */
 
-/**
- * Comando /setboosturl
- */
-async function cmdSetBoostURL(interaction) {
 
-    try {
-
-        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
-
-            return placeholder(
-                interaction,
-                "❌ Necesitas el permiso **Administrador** para usar este comando."
-            );
-
-        }
-
-        const url = interaction.options.getString("url");
-
-        if (!isValidUrl(url)) {
-
-            return placeholder(
-                interaction,
-                "❌ Debes proporcionar una URL válida (https://...)."
-            );
-
-        }
-
-        const guildConfig = getGuildConfig(interaction.guild.id);
-
-        guildConfig.boostUrl = url;
-
-        saveConfig();
-
-        await interaction.reply({
-
-            embeds: [
-
-                new EmbedBuilder()
-
-                    .setColor(0xFF73FA)
-
-                    .setTitle("✅ URL de boost actualizada")
-
-                    .setDescription(
-                        `La URL del botón de boost ahora es:\n\n${url}`
-                    )
-
-                    .setTimestamp()
-
-            ],
-
-            ephemeral: true
-
-        });
-
-        log(`URL de boost actualizada en ${interaction.guild.name}.`);
-
-    } catch (err) {
-
-        console.error("Error en cmdSetBoostURL:");
-        console.error(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-
-            await interaction.reply({
-
-                content: "❌ Ocurrió un error al guardar la URL.",
-
-                ephemeral: true
-
-            });
-
-        }
-
-    }
-
-}
 
 /* ==========================
            Ticket
@@ -2224,11 +1692,8 @@ async function handleSlashCommands(interaction, client) {
             case "setchannelbienvenidas":
                 return await cmdSetChannelBienvenidas(interaction);
 
-            case "setwelcomemessage":
-                return await cmdSetWelcomeMessage(interaction);
-
-            case "setwelcomeurl":
-                return await cmdSetWelcomeURL(interaction);
+            case "setwelcome":
+                return await cmdSetWelcome(interaction);
 
             /* ==========================
                  Despedidas
@@ -2237,12 +1702,9 @@ async function handleSlashCommands(interaction, client) {
             case "setchanneldespedidas":
                 return await cmdSetChannelDespedidas(interaction);
 
-            case "setfarewellmessage":
-                return await cmdSetFarewellMessage(interaction);
-
-            case "setfarewellurl":
-                return await cmdSetFarewellURL(interaction);
-
+            case "setfarewell":
+                return await cmdSetFarewell(interaction);
+                            
             /* ==========================
                     Boost
             ========================== */
@@ -2250,12 +1712,9 @@ async function handleSlashCommands(interaction, client) {
             case "setchannelboost":
                 return await cmdSetChannelBoost(interaction);
 
-            case "setboostmessage":
-                return await cmdSetBoostMessage(interaction);
-
-            case "setboosturl":
-                return await cmdSetBoostURL(interaction);
-
+            case "setboost":
+                return await cmdSetBoost(interaction);
+                            
             /* ==========================
                    Tickets
             ========================== */
