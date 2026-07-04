@@ -155,14 +155,75 @@ function isValidUrl(url) {
 
         const parsed = new URL(url);
 
-        return (
-            parsed.protocol === "http:" ||
-            parsed.protocol === "https:"
-        );
+        if (
+            parsed.protocol !== "https:" &&
+            parsed.protocol !== "http:"
+        )
+            return false;
+
+        return true;
 
     } catch {
 
         return false;
+
+    }
+
+}
+
+/* ==========================
+      RESOLVER IMÁGENES
+========================== */
+
+/**
+ * Convierte enlaces de Tenor en una URL de imagen.
+ * Si no es Tenor, devuelve la URL original.
+ */
+async function resolveImageUrl(url) {
+
+    if (!url)
+        return null;
+
+    // No es Tenor
+    if (!url.includes("tenor.com"))
+        return url;
+
+    try {
+
+        const response = await fetch(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0"
+            }
+        });
+
+        if (!response.ok)
+            return null;
+
+        const html = await response.text();
+
+        // Buscar og:image:secure_url
+        let match = html.match(
+            /<meta\s+property="og:image:secure_url"\s+content="([^"]+)"/i
+        );
+
+        // Si no existe, buscar og:image
+        if (!match) {
+
+            match = html.match(
+                /<meta\s+property="og:image"\s+content="([^"]+)"/i
+            );
+
+        }
+
+        if (!match)
+            return null;
+
+        return match[1];
+
+    } catch (err) {
+
+        console.error("[Tenor]", err);
+        return null;
 
     }
 
@@ -489,14 +550,14 @@ export async function updateCounters(guild) {
     await ensureCounterChannel(
         guild,
         "members",
-        "👥 Miembros",
+        "👥 exploradores",
         guild.memberCount
     );
 
     await ensureCounterChannel(
         guild,
         "bots",
-        "🤖 Bots",
+        "🤖 automatas",
         guild.members.cache.filter(member => member.user.bot).size
     );
 
@@ -1259,21 +1320,26 @@ async function cmdSetWelcome(interaction) {
     const mensaje =
         interaction.options.getString("mensaje");
 
-    const banner =
+    let banner =
         interaction.options.getString("banner");
-
-    if (mensaje)
-        guildConfig.welcome.message = mensaje;
 
     if (banner) {
 
-        if (!isValidUrl(banner))
-            return placeholder(
-                interaction,
-                "❌ La URL del banner no es válida."
-            );
+    banner = await resolveImageUrl(banner);
 
-        guildConfig.welcome.banner = banner;
+    if (!banner)
+        return placeholder(
+            interaction,
+            "❌ No pude obtener la imagen."
+        );
+
+    if (!isValidUrl(banner))
+        return placeholder(
+            interaction,
+            "❌ La URL de la imagen no es válida."
+        );
+
+    guildConfig.welcome.banner = banner;
 
     }
 
@@ -1396,21 +1462,26 @@ async function cmdSetFarewell(interaction) {
     const mensaje =
         interaction.options.getString("mensaje");
 
-    const banner =
+    let banner =
         interaction.options.getString("banner");
-
-    if (mensaje)
-        guildConfig.farewell.message = mensaje;
 
     if (banner) {
 
-        if (!isValidUrl(banner))
-            return placeholder(
-                interaction,
-                "❌ La URL del banner no es válida."
-            );
+    banner = await resolveImageUrl(banner);
 
-        guildConfig.farewell.banner = banner;
+    if (!banner)
+        return placeholder(
+            interaction,
+            "❌ No pude obtener la imagen."
+        );
+
+    if (!isValidUrl(banner))
+        return placeholder(
+            interaction,
+            "❌ La URL de la imagen no es válida."
+        );
+
+    guildConfig.farewell.banner = banner;
 
     }
 
@@ -1533,21 +1604,27 @@ async function cmdSetBoost(interaction) {
     const mensaje =
         interaction.options.getString("mensaje");
 
-    const banner =
+    let banner =
         interaction.options.getString("banner");
 
     if (mensaje)
-        guildConfig.boost.message = mensaje;
-
     if (banner) {
 
-        if (!isValidUrl(banner))
-            return placeholder(
-                interaction,
-                "❌ La URL del banner no es válida."
-            );
+    banner = await resolveImageUrl(banner);
 
-        guildConfig.boost.banner = banner;
+    if (!banner)
+        return placeholder(
+            interaction,
+            "❌ No pude obtener la imagen."
+        );
+
+    if (!isValidUrl(banner))
+        return placeholder(
+            interaction,
+            "❌ La URL de la imagen no es válida."
+        );
+
+    guildConfig.boost.banner = banner;
 
     }
 
