@@ -2352,4 +2352,14 @@ export async function executeLogic(interaction, client) {
           EXPORTS
 ========================== */
 
-export { config };
+export {
+
+    config,
+
+    sendWelcome,
+
+    sendFarewell,
+
+    ensureCounterChannel
+
+};
