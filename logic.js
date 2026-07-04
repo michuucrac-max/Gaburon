@@ -2356,10 +2356,6 @@ export {
 
     config,
 
-    sendWelcome,
-
-    sendFarewell,
-
     ensureCounterChannel
 
 };
