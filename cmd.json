@@ -132,26 +132,20 @@
     ]
   },
   {
-    "name": "setwelcomemessage",
-    "description": "Configurar el mensaje de bienvenida",
+    "name": "setwelcome",
+    "description": "Configurar el mensaje y banner de bienvenida",
     "options": [
       {
         "type": "string",
         "name": "mensaje",
-        "description": "Mensaje",
+        "description": "Mensaje de bienvenida",
         "required": true
-      }
-    ]
-  },
-  {
-    "name": "setwelcomeurl",
-    "description": "Configurar la URL del botón de bienvenida",
-    "options": [
+      },
       {
         "type": "string",
-        "name": "url",
-        "description": "https://...",
-        "required": true
+        "name": "banner",
+        "description": "URL del banner",
+        "required": false
       }
     ]
   },
@@ -168,26 +162,20 @@
     ]
   },
   {
-    "name": "setfarewellmessage",
-    "description": "Configurar el mensaje de despedida",
+    "name": "setfarewell",
+    "description": "Configurar el mensaje y banner de despedida",
     "options": [
       {
         "type": "string",
         "name": "mensaje",
-        "description": "Mensaje",
+        "description": "Mensaje de despedida",
         "required": true
-      }
-    ]
-  },
-  {
-    "name": "setfarewellurl",
-    "description": "Configurar la URL del botón de despedida",
-    "options": [
+      },
       {
         "type": "string",
-        "name": "url",
-        "description": "https://...",
-        "required": true
+        "name": "banner",
+        "description": "URL del banner",
+        "required": false
       }
     ]
   },
@@ -204,26 +192,20 @@
     ]
   },
   {
-    "name": "setboostmessage",
-    "description": "Configurar el mensaje de boost",
+    "name": "setboost",
+    "description": "Configurar el mensaje y banner de boost",
     "options": [
       {
         "type": "string",
         "name": "mensaje",
-        "description": "Mensaje",
+        "description": "Mensaje de boost",
         "required": true
-      }
-    ]
-  },
-  {
-    "name": "setboosturl",
-    "description": "Configurar la URL del botón de boost",
-    "options": [
+      },
       {
         "type": "string",
-        "name": "url",
-        "description": "https://...",
-        "required": true
+        "name": "banner",
+        "description": "URL del banner",
+        "required": false
       }
     ]
   }
