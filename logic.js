@@ -2351,13 +2351,3 @@ export async function executeLogic(interaction, client) {
 /* ==========================
           EXPORTS
 ========================== */
-
-export {
-
-    config,
-
-    executeLogic,
-
-    ensureCounterChannel
-
-};
