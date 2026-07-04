@@ -2358,12 +2358,6 @@ export {
 
     executeLogic,
 
-    sendWelcome,
-
-    sendFarewell,
-
-    handleBoost,
-
     ensureCounterChannel
 
 };
