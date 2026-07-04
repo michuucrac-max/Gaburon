@@ -637,15 +637,947 @@ export async function updateCounters(guild) {
 }
 
 /* ==========================
-           LÓGICA
-========================== */
-
-/* ==========================
           BOTONES
 ========================== */
 
 /* ==========================
+      Crear Ticket
+========================== */
+
+/**
+ * Crea un ticket para un usuario.
+ */
+async function createTicket(interaction) {
+
+    try {
+
+        // Buscar o crear la categoría
+        let category = interaction.guild.channels.cache.find(channel =>
+            channel.type === ChannelType.GuildCategory &&
+            channel.name.toLowerCase() === "administración"
+        );
+
+        if (!category) {
+
+            category = await interaction.guild.channels.create({
+
+                name: "Administración",
+
+                type: ChannelType.GuildCategory
+
+            });
+
+            log("Categoría 'Administración' creada.");
+
+        }
+
+        // Verificar si el usuario ya tiene un ticket abierto
+        const existingTicket = interaction.guild.channels.cache.find(channel =>
+            channel.parentId === category.id &&
+            channel.topic === interaction.user.id
+        );
+
+        if (existingTicket) {
+
+            return interaction.reply({
+
+                content: `❌ Ya tienes un ticket abierto: ${existingTicket}`,
+
+                ephemeral: true
+
+            });
+
+        }
+
+        // Nombre limpio para el canal
+        const username = interaction.user.username
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 80);
+
+        // Crear canal
+        const ticket = await interaction.guild.channels.create({
+
+            name: `ticket-${username}`,
+
+            type: ChannelType.GuildText,
+
+            parent: category.id,
+
+            topic: interaction.user.id,
+
+            permissionOverwrites: [
+
+                {
+                    id: interaction.guild.roles.everyone.id,
+
+                    deny: [
+                        PermissionsBitField.Flags.ViewChannel
+                    ]
+
+                },
+
+                {
+                    id: interaction.user.id,
+
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+
+                }
+
+            ]
+
+        });
+
+        // Embed inicial
+        const embed = new EmbedBuilder()
+
+            .setColor(0x5865F2)
+
+            .setTitle("🎫 Ticket creado")
+
+            .setDescription(
+                [
+                    `Bienvenido ${interaction.user}.`,
+                    "",
+                    "Explica tu problema con el mayor detalle posible.",
+                    "Un miembro del equipo te responderá lo antes posible."
+                ].join("\n")
+            )
+
+            .setTimestamp();
+
+        // Botones
+        const row = new ActionRowBuilder()
+
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId("ticket_accept")
+                    .setLabel("Aceptar")
+                    .setStyle(ButtonStyle.Success),
+
+                new ButtonBuilder()
+                    .setCustomId("ticket_reject")
+                    .setLabel("Rechazar")
+                    .setStyle(ButtonStyle.Danger),
+
+                new ButtonBuilder()
+                    .setCustomId("ticket_close")
+                    .setLabel("Cerrar")
+                    .setStyle(ButtonStyle.Secondary)
+
+            );
+
+        await ticket.send({
+
+            content: `${interaction.user}`,
+
+            embeds: [embed],
+
+            components: [row]
+
+        });
+
+        await interaction.reply({
+
+            content: `✅ Tu ticket ha sido creado correctamente: ${ticket}`,
+
+            ephemeral: true
+
+        });
+
+        log(`${interaction.user.tag} creó un ticket.`);
+
+    } catch (err) {
+
+        console.error("Error en createTicket:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al crear el ticket.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+      Aceptar Ticket
+========================== */
+
+/**
+ * Marca un ticket como atendido.
+ */
+async function acceptTicket(interaction) {
+
+    try {
+
+        if (!interaction.channel.name.startsWith("ticket-")) {
+
+            return interaction.reply({
+
+                content: "❌ Este botón solo puede usarse dentro de un ticket.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+        if (interaction.channel.name.endsWith("-atendido")) {
+
+            return interaction.reply({
+
+                content: "⚠️ Este ticket ya fue aceptado.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+        await interaction.channel.setName(
+            `${interaction.channel.name}-atendido`
+        );
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0x57F287)
+
+            .setTitle("✅ Ticket aceptado")
+
+            .setDescription(
+                `${interaction.user} se hará cargo de este ticket.`
+            )
+
+            .setTimestamp();
+
+        await interaction.reply({
+
+            embeds: [embed]
+
+        });
+
+        log(`${interaction.user.tag} aceptó un ticket.`);
+
+    } catch (err) {
+
+        console.error("Error en acceptTicket:");
+        console.error(err);
+
+    }
+
+}
+
+/* ==========================
+      Rechazar Ticket
+========================== */
+
+/**
+ * Rechaza un ticket.
+ */
+async function rejectTicket(interaction) {
+
+    try {
+
+        if (!interaction.channel.name.startsWith("ticket-")) {
+
+            return interaction.reply({
+
+                content: "❌ Este botón solo puede usarse dentro de un ticket.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0xED4245)
+
+            .setTitle("❌ Ticket rechazado")
+
+            .setDescription(
+                `${interaction.user} ha rechazado este ticket.\n\nSi crees que se trata de un error, contacta con un administrador.`
+            )
+
+            .setTimestamp();
+
+        await interaction.reply({
+
+            embeds: [embed]
+
+        });
+
+        log(`${interaction.user.tag} rechazó un ticket.`);
+
+    } catch (err) {
+
+        console.error("Error en rejectTicket:");
+        console.error(err);
+
+    }
+
+}
+
+/* ==========================
+      Cerrar Ticket
+========================== */
+
+/**
+ * Solicita confirmar el cierre del ticket.
+ */
+async function closeTicket(interaction) {
+
+    try {
+
+        if (!interaction.channel.name.startsWith("ticket-")) {
+
+            return interaction.reply({
+
+                content: "❌ Este botón solo puede usarse dentro de un ticket.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+        const row = new ActionRowBuilder().addComponents(
+
+            new ButtonBuilder()
+                .setCustomId("ticket_close_confirm")
+                .setLabel("✅ Confirmar")
+                .setStyle(ButtonStyle.Danger),
+
+            new ButtonBuilder()
+                .setCustomId("ticket_close_cancel")
+                .setLabel("❌ Cancelar")
+                .setStyle(ButtonStyle.Secondary)
+
+        );
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0xFEE75C)
+
+            .setTitle("⚠️ Confirmar cierre")
+
+            .setDescription(
+                "¿Estás seguro de que deseas cerrar este ticket?\n\nEsta acción eliminará el canal."
+            );
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            components: [row],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en closeTicket:");
+        console.error(err);
+
+    }
+
+}
+
+/* ==========================
+    Confirmar Cierre
+========================== */
+
+/**
+ * Elimina el ticket.
+ */
+async function confirmCloseTicket(interaction) {
+
+    try {
+
+        await interaction.update({
+
+            content: "✅ Ticket cerrado. Eliminando canal en **5 segundos...**",
+
+            embeds: [],
+
+            components: []
+
+        });
+
+        await interaction.channel.send({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0xED4245)
+
+                    .setTitle("🔒 Ticket cerrado")
+
+                    .setDescription(
+                        `Este ticket fue cerrado por ${interaction.user}.`
+                    )
+
+                    .setTimestamp()
+
+            ]
+
+        });
+
+        setTimeout(async () => {
+
+            try {
+
+                await interaction.channel.delete(
+                    `Ticket cerrado por ${interaction.user.tag}`
+                );
+
+            } catch (err) {
+
+                console.error(err);
+
+            }
+
+        }, 5000);
+
+    } catch (err) {
+
+        console.error("Error en confirmCloseTicket:");
+        console.error(err);
+
+    }
+
+}
+
+/* ==========================
+     Cancelar Cierre
+========================== */
+
+/**
+ * Cancela el cierre del ticket.
+ */
+async function cancelCloseTicket(interaction) {
+
+    await interaction.update({
+
+        content: "✅ Cierre cancelado.",
+
+        embeds: [],
+
+        components: []
+
+    });
+
+}
+
+/* ==========================
+      Función Principal
+========================== */
+
+/**
+ * Maneja todos los botones del bot.
+ */
+async function handleButtons(interaction) {
+
+    try {
+
+        switch (interaction.customId) {
+
+            case "ticket_create":
+                return await createTicket(interaction);
+
+            case "ticket_accept":
+                return await acceptTicket(interaction);
+
+            case "ticket_reject":
+                return await rejectTicket(interaction);
+
+            case "ticket_close":
+                return await closeTicket(interaction);
+
+            case "ticket_close_confirm":
+                return await confirmCloseTicket(interaction);
+
+            case "ticket_close_cancel":
+                return await cancelCloseTicket(interaction);
+
+            default:
+                return;
+
+        }
+
+    } catch (err) {
+
+        console.error("Error en handleButtons:");
+        console.error(err);
+
+        if (
+            interaction.isRepliable() &&
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al procesar este botón.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
       SLASH COMMANDS
+========================== */
+
+/* ==========================
+            Ping
+========================== */
+
+/**
+ * Comando /ping
+ */
+async function cmdPing(interaction) {
+
+    try {
+
+        const sent = await interaction.reply({
+
+            content: "🏓 Calculando latencia...",
+
+            fetchReply: true
+
+        });
+
+        const latency = sent.createdTimestamp - interaction.createdTimestamp;
+
+        await interaction.editReply({
+
+            content:
+                `🏓 **Pong!**\n\n` +
+                `📡 Latencia: **${latency} ms**\n` +
+                `🤖 API: **${Math.round(interaction.client.ws.ping)} ms**`
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en cmdPing:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al ejecutar este comando.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+            Help
+========================== */
+
+/**
+ * Comando /help
+ */
+async function cmdHelp(interaction) {
+
+    try {
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0x5865F2)
+
+            .setTitle("📖 Centro de ayuda")
+
+            .setDescription(
+                [
+                    "¡Hola! Estos son los comandos disponibles de **Gaburon**.",
+                    "",
+                    "> Los comandos de configuración del servidor no se muestran aquí."
+                ].join("\n")
+            )
+
+            .setImage("AQUÍ_VA_LA_URL_DEL_BANNER")
+
+            .addFields(
+
+                {
+                    name: "🏓 /ping",
+                    value: "Muestra la latencia del bot y la API.",
+                    inline: false
+                },
+
+                {
+                    name: "📖 /help",
+                    value: "Muestra este menú de ayuda.",
+                    inline: false
+                },
+
+                {
+                    name: "🎫 /ticket",
+                    value: "Envía el panel para crear tickets.",
+                    inline: false
+                }
+
+            )
+
+            .setFooter({
+                text: "Gaburon"
+            })
+
+            .setTimestamp();
+
+        await interaction.reply({
+
+            embeds: [embed],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error("Error en cmdHelp:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al ejecutar este comando.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+        SetChannel
+========================== */
+
+/* ==========================
+   SetChannelBienvenidas
+========================== */
+
+/**
+ * Comando /setchannelbienvenidas
+ */
+async function cmdSetChannelBienvenidas(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const channel = interaction.options.getChannel("canal");
+
+        if (!channel) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes seleccionar un canal."
+            );
+
+        }
+
+        if (!channel.isTextBased()) {
+
+            return placeholder(
+                interaction,
+                "❌ El canal debe permitir enviar mensajes."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.bienvenidas = channel.id;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            content:
+                `✅ El canal de bienvenida se configuró correctamente.\n\n` +
+                `📢 Canal: ${channel}`,
+
+            ephemeral: true
+
+        });
+
+        log(`Canal de bienvenida configurado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetChannelBienvenidas:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al configurar el canal.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+    SetWelcomeMessage
+========================== */
+
+/**
+ * Comando /setwelcomemessage
+ */
+async function cmdSetWelcomeMessage(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const message = interaction.options.getString("mensaje");
+
+        if (!message) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes escribir un mensaje."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.bienvenidasMessage = message;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0x57F287)
+
+                    .setTitle("✅ Mensaje de bienvenida actualizado")
+
+                    .setDescription(
+                        [
+                            "**Nuevo mensaje:**",
+                            "",
+                            `>>> ${message}`,
+                            "",
+                            "**Placeholders disponibles:**",
+                            "`{user}` • Menciona al usuario",
+                            "`{username}` • Nombre del usuario",
+                            "`{server}` • Nombre del servidor",
+                            "`{avatar}` • URL del avatar",
+                            "`{banner}` • URL del banner"
+                        ].join("\n")
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`Mensaje de bienvenida actualizado en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetWelcomeMessage:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar el mensaje.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+       SetWelcomeURL
+========================== */
+
+/**
+ * Comando /setwelcomeurl
+ */
+async function cmdSetWelcomeURL(interaction) {
+
+    try {
+
+        if (!interaction.memberPermissions.has(PermissionsBitField.Flags.Administrator)) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para usar este comando."
+            );
+
+        }
+
+        const url = interaction.options.getString("url");
+
+        if (!isValidUrl(url)) {
+
+            return placeholder(
+                interaction,
+                "❌ Debes proporcionar una URL válida (https://...)."
+            );
+
+        }
+
+        const guildConfig = getGuildConfig(interaction.guild.id);
+
+        guildConfig.bienvenidasUrl = url;
+
+        saveConfig();
+
+        await interaction.reply({
+
+            embeds: [
+
+                new EmbedBuilder()
+
+                    .setColor(0x57F287)
+
+                    .setTitle("✅ URL de bienvenida actualizada")
+
+                    .setDescription(
+                        `La URL del botón de bienvenida ahora es:\n\n${url}`
+                    )
+
+                    .setTimestamp()
+
+            ],
+
+            ephemeral: true
+
+        });
+
+        log(`URL de bienvenida actualizada en ${interaction.guild.name}.`);
+
+    } catch (err) {
+
+        console.error("Error en cmdSetWelcomeURL:");
+        console.error(err);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            await interaction.reply({
+
+                content: "❌ Ocurrió un error al guardar la URL.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+   SetChannelDespedidas
+========================== */
+
+/* ==========================
+   SetFarewellMessage
+========================== */
+
+/* ==========================
+     SetFarewellURL
+========================== */
+
+/* ==========================
+      SetChannelBoost
+========================== */
+
+/* ==========================
+      SetBoostMessage
+========================== */
+
+/* ==========================
+        SetBoostURL
+========================== */
+
+/* ==========================
+           Ticket
+========================== */
+
+/* ==========================
+     Función Principal
 ========================== */
 
 /* ==========================
