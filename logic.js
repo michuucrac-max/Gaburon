@@ -1194,6 +1194,37 @@ async function cmdHelp(interaction) {
 
             .setTitle("📖 Centro de ayuda | Gaburon")
 
+            .setDescription(
+                [
+                    "¡Hola! Estos son los comandos disponibles actualmente.",
+                    "",
+                    "**⚙️ Configuración**",
+                    "• `/setchannelbienvenidas` → Configura el canal de bienvenida.",
+                    "• `/setwelcome` → Configura el mensaje y banner de bienvenida.",
+                    "",
+                    "• `/setchanneldespedidas` → Configura el canal de despedida.",
+                    "• `/setfarewell` → Configura el mensaje y banner de despedida.",
+                    "",
+                    "• `/setchannelboost` → Configura el canal de boosts.",
+                    "• `/setboost` → Configura el mensaje y banner de boost.",
+                    "",
+                    "**🎫 Tickets**",
+                    "• `/ticket` → Envía el panel para crear tickets.",
+                    "",
+                    "**🔧 Utilidades**",
+                    "• `/ping` → Muestra la latencia del bot.",
+                    "• `/help` → Muestra este menú.",
+                    "",
+                    "**📝 Placeholders**",
+                    "• `{user}` → Menciona al usuario.",
+                    "• `{username}` → Nombre del usuario.",
+                    "• `{server}` → Nombre del servidor.",
+                    "",
+                    "**💡 Ejemplo**",
+                    "`¡Bienvenido {user} a {server}!`"
+                ].join("\n")
+            )
+
             .setThumbnail(
                 interaction.client.user.displayAvatarURL({
                     extension: "png",
@@ -1201,108 +1232,25 @@ async function cmdHelp(interaction) {
                 })
             )
 
-            .setDescription(
-                [
-                    "¡Hola! Soy **Gaburon**.",
-                    "",
-                    "Estos son todos los comandos disponibles actualmente."
-                ].join("\n")
-            )
-
-            .addFields(
-
-                {
-                    name: "⚙️ Configuración",
-                    value: [
-                        "`/setchannelbienvenidas`",
-                        "Configura el canal donde se enviarán las bienvenidas.",
-                        "",
-                        "`/setwelcome`",
-                        "Configura el mensaje y el banner de bienvenida.",
-                        "",
-                        "`/setchanneldespedidas`",
-                        "Configura el canal donde se enviarán las despedidas.",
-                        "",
-                        "`/setfarewell`",
-                        "Configura el mensaje y el banner de despedida.",
-                        "",
-                        "`/setchannelboost`",
-                        "Configura el canal donde se enviarán los boosts.",
-                        "",
-                        "`/setboost`",
-                        "Configura el mensaje y el banner de boost."
-                    ].join("\n"),
-                    inline: false
-                },
-
-                {
-                    name: "🎫 Tickets",
-                    value: [
-                        "`/ticket`",
-                        "Envía el panel para que los usuarios puedan crear tickets privados."
-                    ].join("\n"),
-                    inline: false
-                },
-
-                {
-                    name: "🔧 Utilidades",
-                    value: [
-                        "`/ping`",
-                        "Muestra la latencia del bot.",
-                        "",
-                        "`/help`",
-                        "Muestra este menú de ayuda."
-                    ].join("\n"),
-                    inline: false
-                },
-
-                {
-                    name: "📝 Placeholders",
-                    value: [
-                        "`{user}` → Menciona al usuario.",
-                        "`{username}` → Nombre del usuario.",
-                        "`{server}` → Nombre del servidor."
-                    ].join("\n"),
-                    inline: false
-                },
-
-                {
-                    name: "💡 Ejemplos",
-                    value: [
-                        "`¡Bienvenido {user}!`",
-                        "",
-                        "`Hola {username}, disfruta tu estancia en {server}.`"
-                    ].join("\n"),
-                    inline: false
-                }
-
-            )
-
             .setFooter({
-                text: `${interaction.guild.name} • Gaburon`
+                text: "Gaburon"
             })
 
             .setTimestamp();
 
         await interaction.reply({
-
             embeds: [embed]
-
         });
 
     } catch (err) {
 
-        console.error("Error en cmdHelp:");
-        console.error(err);
+        console.error("Error en cmdHelp:", err);
 
         if (!interaction.replied && !interaction.deferred) {
 
             await interaction.reply({
-
                 content: "❌ Ocurrió un error al mostrar la ayuda.",
-
                 ephemeral: true
-
             });
 
         }
