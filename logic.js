@@ -1192,51 +1192,101 @@ async function cmdHelp(interaction) {
 
             .setColor(0x5865F2)
 
-            .setTitle("📖 Centro de ayuda")
+            .setTitle("📖 Centro de ayuda | Gaburon")
+
+            .setThumbnail(
+                interaction.client.user.displayAvatarURL({
+                    extension: "png",
+                    size: 1024
+                })
+            )
 
             .setDescription(
                 [
-                    "¡Hola! Estos son los comandos disponibles de **Gaburon**.",
+                    "¡Hola! Soy **Gaburon**.",
                     "",
-                    "> Los comandos de configuración del servidor no se muestran aquí."
+                    "Estos son todos los comandos disponibles actualmente."
                 ].join("\n")
             )
-
-            .setImage("AQUÍ_VA_LA_URL_DEL_BANNER")
 
             .addFields(
 
                 {
-                    name: "🏓 /ping",
-                    value: "Muestra la latencia del bot y la API.",
+                    name: "⚙️ Configuración",
+                    value: [
+                        "`/setchannelbienvenidas`",
+                        "Configura el canal donde se enviarán las bienvenidas.",
+                        "",
+                        "`/setwelcome`",
+                        "Configura el mensaje y el banner de bienvenida.",
+                        "",
+                        "`/setchanneldespedidas`",
+                        "Configura el canal donde se enviarán las despedidas.",
+                        "",
+                        "`/setfarewell`",
+                        "Configura el mensaje y el banner de despedida.",
+                        "",
+                        "`/setchannelboost`",
+                        "Configura el canal donde se enviarán los boosts.",
+                        "",
+                        "`/setboost`",
+                        "Configura el mensaje y el banner de boost."
+                    ].join("\n"),
                     inline: false
                 },
 
                 {
-                    name: "📖 /help",
-                    value: "Muestra este menú de ayuda.",
+                    name: "🎫 Tickets",
+                    value: [
+                        "`/ticket`",
+                        "Envía el panel para que los usuarios puedan crear tickets privados."
+                    ].join("\n"),
                     inline: false
                 },
 
                 {
-                    name: "🎫 /ticket",
-                    value: "Envía el panel para crear tickets.",
+                    name: "🔧 Utilidades",
+                    value: [
+                        "`/ping`",
+                        "Muestra la latencia del bot.",
+                        "",
+                        "`/help`",
+                        "Muestra este menú de ayuda."
+                    ].join("\n"),
+                    inline: false
+                },
+
+                {
+                    name: "📝 Placeholders",
+                    value: [
+                        "`{user}` → Menciona al usuario.",
+                        "`{username}` → Nombre del usuario.",
+                        "`{server}` → Nombre del servidor."
+                    ].join("\n"),
+                    inline: false
+                },
+
+                {
+                    name: "💡 Ejemplos",
+                    value: [
+                        "`¡Bienvenido {user}!`",
+                        "",
+                        "`Hola {username}, disfruta tu estancia en {server}.`"
+                    ].join("\n"),
                     inline: false
                 }
 
             )
 
             .setFooter({
-                text: "Gaburon"
+                text: `${interaction.guild.name} • Gaburon`
             })
 
             .setTimestamp();
 
         await interaction.reply({
 
-            embeds: [embed],
-
-            ephemeral: true
+            embeds: [embed]
 
         });
 
@@ -1249,7 +1299,7 @@ async function cmdHelp(interaction) {
 
             await interaction.reply({
 
-                content: "❌ Ocurrió un error al ejecutar este comando.",
+                content: "❌ Ocurrió un error al mostrar la ayuda.",
 
                 ephemeral: true
 
