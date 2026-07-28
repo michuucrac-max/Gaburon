@@ -186,84 +186,101 @@ async function resolveImageUrl(url) {
 
     url = url.trim();
 
-    // Si ya es una imagen/GIF directa
-    if (
-        /\.(gif|png|jpe?g|webp)(\?.*)?$/i.test(url)
-    ) {
-        return url;
-    }
-
-    // No es Tenor
-    if (
-        !url.includes("tenor.com") &&
-        !url.includes("tenor.co") &&
-        !url.includes("media.tenor.com")
-    ) {
-        return url;
-    }
-
     try {
 
+        // Comprobar si la URL ya apunta directamente a una imagen
+        try {
+            let response = await fetch(url, {
+                method: "HEAD",
+                redirect: "follow",
+                headers: {
+                    "User-Agent": "Mozilla/5.0"
+                }
+            });
+
+            // Algunos servidores no aceptan HEAD
+            if (!response.ok || response.status === 405) {
+                response = await fetch(url, {
+                    method: "GET",
+                    redirect: "follow",
+                    headers: {
+                        "User-Agent": "Mozilla/5.0"
+                    }
+                });
+            }
+
+            const type = response.headers.get("content-type");
+
+            if (type && type.startsWith("image/")) {
+                return response.url;
+            }
+
+        } catch {
+            // Continuar con Tenor
+        }
+
+        // Si no es Tenor, devolver la URL original
+        if (
+            !url.includes("tenor.com") &&
+            !url.includes("tenor.co") &&
+            !url.includes("media.tenor.com")
+        ) {
+            return url;
+        }
+
+        // Resolver enlaces de Tenor
         const response = await fetch(url, {
+            redirect: "follow",
             headers: {
                 "User-Agent": "Mozilla/5.0"
-            },
-            redirect: "follow"
+            }
         });
 
         if (!response.ok)
-            return null;
+            return url;
 
         const html = await response.text();
 
-        // Intentar obtener un GIF
-        const gifMatch =
-            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.gif/gi);
+        // Buscar GIF
+        const gif =
+            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.gif/gi)?.[0];
 
-        if (gifMatch?.length)
-            return gifMatch[0];
+        if (gif)
+            return gif;
 
-        // Intentar obtener WEBP
-        const webpMatch =
-            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.webp/gi);
+        // Buscar WEBP
+        const webp =
+            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.webp/gi)?.[0];
 
-        if (webpMatch?.length)
-            return webpMatch[0];
+        if (webp)
+            return webp;
 
-        // og:image:secure_url
-        let meta = html.match(
-            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i
-        );
+        // Buscar MP4 (Discord también puede mostrarlo)
+        const mp4 =
+            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.mp4/gi)?.[0];
 
-        if (meta)
-            return meta[1];
+        if (mp4)
+            return mp4;
 
-        // og:image
-        meta = html.match(
-            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
-        );
-
-        if (meta)
-            return meta[1];
-
-        // twitter:image
-        meta = html.match(
-            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i
-        );
+        // Buscar meta og:image
+        const meta =
+            html.match(
+                /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i
+            )?.[1];
 
         if (meta)
-            return meta[1];
+            return meta;
 
-        return null;
+        return url;
 
     } catch (err) {
 
         console.error("[resolveImageUrl]", err);
 
-        return null;
-
+        // Como último recurso devolver la URL original
+              
+        return url;
     }
-
 }
 
 /* ==========================
