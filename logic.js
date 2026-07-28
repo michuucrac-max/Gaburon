@@ -176,7 +176,17 @@ function isValidUrl(url) {
 ========================== */
 
 /**
- * Convierte enlaces de imágenes o Tenor a una URL compatible con Discord.
+ * Convierte enlaces de imágenes o GIFs a una URL compatible con Discord.
+ * Compatible con:
+ * - Tenor
+ * - Giphy
+ * - Discord CDN
+ * - Imgur
+ * - GitHub
+ * - Catbox
+ * - ImgBB
+ * - Postimages
+ * - Cualquier imagen pública
  */
 async function resolveImageUrl(url) {
 
@@ -187,20 +197,12 @@ async function resolveImageUrl(url) {
 
     try {
 
-        // ¿Ya es una imagen directa?
-        if (/\.(gif|png|jpe?g|webp)(\?.*)?$/i.test(url))
-            return url;
+        // Comprobar que sea una URL válida
+        new URL(url);
 
-        // Si no es Tenor, devolver la URL tal cual.
-        if (
-            !url.includes("tenor.com") &&
-            !url.includes("tenor.co") &&
-            !url.includes("media.tenor.com")
-        ) {
-            return url;
-        }
-
+        // Descargar siguiendo redirecciones
         const response = await fetch(url, {
+            method: "GET",
             redirect: "follow",
             headers: {
                 "User-Agent": "Mozilla/5.0"
@@ -210,39 +212,80 @@ async function resolveImageUrl(url) {
         if (!response.ok)
             return null;
 
+        // Si terminó siendo una imagen directa
+        const contentType = response.headers.get("content-type") || "";
+
+        if (contentType.startsWith("image/"))
+            return response.url;
+
+        // Si no es HTML devolver la URL final
+        if (!contentType.includes("text/html"))
+            return response.url;
+
         const html = await response.text();
 
-        // Buscar og:image:secure_url
-        let meta = html.match(
-            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"]+)["']/i
+        // Buscar meta tags (prioridad máxima)
+        const metaPatterns = [
+
+            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"]+)["']/i,
+
+            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"]+)["']/i,
+
+            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"]+)["']/i,
+
+            /<meta[^>]+property=["']twitter:image["'][^>]+content=["']([^"]+)["']/i
+
+        ];
+
+        for (const regex of metaPatterns) {
+
+            const match = html.match(regex);
+
+            if (match?.[1])
+                return match[1];
+
+        }
+
+        // Buscar media.tenor.com
+        const tenor = html.match(
+            /https:\/\/media\.tenor\.com\/[^"' ]+\.(gif|png|jpg|jpeg|webp)/i
         );
 
-        if (meta?.[1])
-            return meta[1];
+        if (tenor)
+            return tenor[0];
 
-        // Buscar og:image
-        meta = html.match(
-            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"]+)["']/i
+        // Buscar cualquier imagen del HTML
+        const img = html.match(
+            /https?:\/\/[^"' ]+\.(gif|png|jpg|jpeg|webp)(\?[^"' ]*)?/i
         );
 
-        if (meta?.[1])
-            return meta[1];
+        if (img)
+            return img[0];
 
-        // Buscar twitter:image
-        meta = html.match(
-            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"]+)["']/i
+        // Buscar src=""
+        const src = html.match(
+            /<img[^>]+src=["']([^"']+)["']/i
         );
 
-        if (meta?.[1])
-            return meta[1];
+        if (src?.[1]) {
 
-        return null;
+            try {
+
+                return new URL(src[1], response.url).href;
+
+            } catch {}
+
+        }
+
+        // Último recurso
+        return response.url || url;
 
     } catch (err) {
 
         console.error("[resolveImageUrl]", err);
 
         return null;
+
     }
 
 }
