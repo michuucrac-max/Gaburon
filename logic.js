@@ -176,8 +176,17 @@ function isValidUrl(url) {
 ========================== */
 
 /**
- * Convierte enlaces de Tenor en una URL de imagen/GIF.
- * También acepta enlaces directos.
+ * Convierte cualquier URL de imagen o GIF a una URL compatible con Discord.
+ * Compatible con:
+ * - Tenor
+ * - Giphy
+ * - Discord CDN
+ * - Imgur
+ * - GitHub
+ * - Catbox
+ * - Postimages
+ * - ImgBB
+ * - cualquier URL pública de imagen
  */
 async function resolveImageUrl(url) {
 
@@ -188,8 +197,9 @@ async function resolveImageUrl(url) {
 
     try {
 
-        // Comprobar si la URL ya apunta directamente a una imagen
+        // Intentar comprobar si ya es una imagen directa
         try {
+
             let response = await fetch(url, {
                 method: "HEAD",
                 redirect: "follow",
@@ -198,8 +208,8 @@ async function resolveImageUrl(url) {
                 }
             });
 
-            // Algunos servidores no aceptan HEAD
             if (!response.ok || response.status === 405) {
+
                 response = await fetch(url, {
                     method: "GET",
                     redirect: "follow",
@@ -207,6 +217,7 @@ async function resolveImageUrl(url) {
                         "User-Agent": "Mozilla/5.0"
                     }
                 });
+
             }
 
             const type = response.headers.get("content-type");
@@ -215,11 +226,9 @@ async function resolveImageUrl(url) {
                 return response.url;
             }
 
-        } catch {
-            // Continuar con Tenor
-        }
+        } catch {}
 
-        // Si no es Tenor, devolver la URL original
+        // Si no es Tenor simplemente devolver la URL
         if (
             !url.includes("tenor.com") &&
             !url.includes("tenor.co") &&
@@ -228,7 +237,7 @@ async function resolveImageUrl(url) {
             return url;
         }
 
-        // Resolver enlaces de Tenor
+        // Descargar la página de Tenor
         const response = await fetch(url, {
             redirect: "follow",
             headers: {
@@ -241,35 +250,48 @@ async function resolveImageUrl(url) {
 
         const html = await response.text();
 
-        // Buscar GIF
-        const gif =
-            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.gif/gi)?.[0];
-
-        if (gif)
-            return gif;
-
-        // Buscar WEBP
-        const webp =
-            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.webp/gi)?.[0];
-
-        if (webp)
-            return webp;
-
-        // Buscar MP4 (Discord también puede mostrarlo)
-        const mp4 =
-            html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.mp4/gi)?.[0];
-
-        if (mp4)
-            return mp4;
-
-        // Buscar meta og:image
-        const meta =
-            html.match(
-                /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i
-            )?.[1];
+        // 1. og:image:secure_url (la mejor opción)
+        let meta = html.match(
+            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i
+        );
 
         if (meta)
-            return meta;
+            return meta[1];
+
+        // 2. og:image
+        meta = html.match(
+            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+        );
+
+        if (meta)
+            return meta[1];
+
+        // 3. twitter:image
+        meta = html.match(
+            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i
+        );
+
+        if (meta)
+            return meta[1];
+
+        // 4. Último recurso: buscar GIFs
+        const gifs = [
+            ...new Set(
+                html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.(gif|webp|mp4)/gi) || []
+            )
+        ];
+
+        if (gifs.length === 1)
+            return gifs[0];
+
+        if (gifs.length > 1) {
+
+            // Priorizar GIFs grandes (normalmente el principal)
+            gifs.sort((a, b) => b.length - a.length);
+
+            return gifs[0];
+
+        }
 
         return url;
 
@@ -277,10 +299,9 @@ async function resolveImageUrl(url) {
 
         console.error("[resolveImageUrl]", err);
 
-        // Como último recurso devolver la URL original
-              
         return url;
     }
+
 }
 
 /* ==========================
