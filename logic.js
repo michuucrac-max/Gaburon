@@ -176,17 +176,7 @@ function isValidUrl(url) {
 ========================== */
 
 /**
- * Convierte cualquier URL de imagen o GIF a una URL compatible con Discord.
- * Compatible con:
- * - Tenor
- * - Giphy
- * - Discord CDN
- * - Imgur
- * - GitHub
- * - Catbox
- * - Postimages
- * - ImgBB
- * - cualquier URL pública de imagen
+ * Convierte enlaces de imágenes o Tenor a una URL compatible con Discord.
  */
 async function resolveImageUrl(url) {
 
@@ -197,38 +187,11 @@ async function resolveImageUrl(url) {
 
     try {
 
-        // Intentar comprobar si ya es una imagen directa
-        try {
+        // ¿Ya es una imagen directa?
+        if (/\.(gif|png|jpe?g|webp)(\?.*)?$/i.test(url))
+            return url;
 
-            let response = await fetch(url, {
-                method: "HEAD",
-                redirect: "follow",
-                headers: {
-                    "User-Agent": "Mozilla/5.0"
-                }
-            });
-
-            if (!response.ok || response.status === 405) {
-
-                response = await fetch(url, {
-                    method: "GET",
-                    redirect: "follow",
-                    headers: {
-                        "User-Agent": "Mozilla/5.0"
-                    }
-                });
-
-            }
-
-            const type = response.headers.get("content-type");
-
-            if (type && type.startsWith("image/")) {
-                return response.url;
-            }
-
-        } catch {}
-
-        // Si no es Tenor simplemente devolver la URL
+        // Si no es Tenor, devolver la URL tal cual.
         if (
             !url.includes("tenor.com") &&
             !url.includes("tenor.co") &&
@@ -237,7 +200,6 @@ async function resolveImageUrl(url) {
             return url;
         }
 
-        // Descargar la página de Tenor
         const response = await fetch(url, {
             redirect: "follow",
             headers: {
@@ -246,60 +208,41 @@ async function resolveImageUrl(url) {
         });
 
         if (!response.ok)
-            return url;
+            return null;
 
         const html = await response.text();
 
-        // 1. og:image:secure_url (la mejor opción)
+        // Buscar og:image:secure_url
         let meta = html.match(
-            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i
+            /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"]+)["']/i
         );
 
-        if (meta)
+        if (meta?.[1])
             return meta[1];
 
-        // 2. og:image
+        // Buscar og:image
         meta = html.match(
-            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+            /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"]+)["']/i
         );
 
-        if (meta)
+        if (meta?.[1])
             return meta[1];
 
-        // 3. twitter:image
+        // Buscar twitter:image
         meta = html.match(
-            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i
+            /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"]+)["']/i
         );
 
-        if (meta)
+        if (meta?.[1])
             return meta[1];
 
-        // 4. Último recurso: buscar GIFs
-        const gifs = [
-            ...new Set(
-                html.match(/https:\/\/media\.tenor\.com\/[^"' ]+\.(gif|webp|mp4)/gi) || []
-            )
-        ];
-
-        if (gifs.length === 1)
-            return gifs[0];
-
-        if (gifs.length > 1) {
-
-            // Priorizar GIFs grandes (normalmente el principal)
-            gifs.sort((a, b) => b.length - a.length);
-
-            return gifs[0];
-
-        }
-
-        return url;
+        return null;
 
     } catch (err) {
 
         console.error("[resolveImageUrl]", err);
 
-        return url;
+        return null;
     }
 
 }
