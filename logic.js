@@ -178,7 +178,7 @@ function isValidUrl(url) {
 /**
  * Convierte enlaces de imágenes o GIFs a una URL compatible con Discord.
  * Compatible con:
- * - Tenor
+ * - Tenor (view, es-US/view, .gif)
  * - Giphy
  * - Discord CDN
  * - Imgur
@@ -197,24 +197,29 @@ async function resolveImageUrl(url) {
 
     try {
 
-        // Comprobar que sea una URL válida
+        // Comprobar URL válida
         new URL(url);
 
-        // Descargar siguiendo redirecciones
+        // Si ya parece una imagen directa
+        if (/^https?:\/\/.+\.(gif|png|jpe?g|webp)(\?.*)?$/i.test(url))
+            return url;
+
         const response = await fetch(url, {
             method: "GET",
             redirect: "follow",
             headers: {
-                "User-Agent": "Mozilla/5.0"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml,image/webp,image/apng,*/*",
+                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
             }
         });
 
         if (!response.ok)
             return null;
 
-        // Si terminó siendo una imagen directa
         const contentType = response.headers.get("content-type") || "";
 
+        // Si terminó siendo una imagen
         if (contentType.startsWith("image/"))
             return response.url;
 
@@ -224,7 +229,10 @@ async function resolveImageUrl(url) {
 
         const html = await response.text();
 
-        // Buscar meta tags (prioridad máxima)
+        // ==========================
+        // META TAGS
+        // ==========================
+
         const metaPatterns = [
 
             /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"]+)["']/i,
@@ -242,19 +250,43 @@ async function resolveImageUrl(url) {
             const match = html.match(regex);
 
             if (match?.[1])
-                return match[1];
+                return match[1]
+                    .replace(/\\\//g, "/")
+                    .replace(/&amp;/g, "&");
 
         }
 
-        // Buscar media.tenor.com
-        const tenor = html.match(
-            /https:\/\/media\.tenor\.com\/[^"' ]+\.(gif|png|jpg|jpeg|webp)/i
-        );
+        // ==========================
+        // TENOR (JSON moderno)
+        // ==========================
 
-        if (tenor)
-            return tenor[0];
+        const tenorPatterns = [
 
-        // Buscar cualquier imagen del HTML
+            /"contentUrl":"(https:\\\/\\\/media\.tenor\.com\\\/[^"]+)"/i,
+
+            /"url":"(https:\\\/\\\/media\.tenor\.com\\\/[^"]+\.(?:gif|png|jpg|jpeg|webp))"/i,
+
+            /"image":"(https:\\\/\\\/media\.tenor\.com\\\/[^"]+)"/i,
+
+            /(https:\/\/media\.tenor\.com\/[^"' ]+\.(?:gif|png|jpg|jpeg|webp))/i
+
+        ];
+
+        for (const regex of tenorPatterns) {
+
+            const match = html.match(regex);
+
+            if (match?.[1])
+                return match[1]
+                    .replace(/\\\//g, "/")
+                    .replace(/&amp;/g, "&");
+
+        }
+
+        // ==========================
+        // Cualquier imagen encontrada
+        // ==========================
+
         const img = html.match(
             /https?:\/\/[^"' ]+\.(gif|png|jpg|jpeg|webp)(\?[^"' ]*)?/i
         );
@@ -262,7 +294,10 @@ async function resolveImageUrl(url) {
         if (img)
             return img[0];
 
-        // Buscar src=""
+        // ==========================
+        // <img src="">
+        // ==========================
+
         const src = html.match(
             /<img[^>]+src=["']([^"']+)["']/i
         );
@@ -270,14 +305,11 @@ async function resolveImageUrl(url) {
         if (src?.[1]) {
 
             try {
-
                 return new URL(src[1], response.url).href;
-
             } catch {}
 
         }
 
-        // Último recurso
         return response.url || url;
 
     } catch (err) {
