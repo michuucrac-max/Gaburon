@@ -1178,6 +1178,7 @@ async function handleButtons(interaction) {
 
 }
 
+
 /* ==========================
       SLASH COMMANDS
 ========================== */
@@ -1868,6 +1869,636 @@ async function cmdSetChannelBoost(interaction) {
 
 }
 
+/* =========================================================
+   🛡️ AUTOMOD — BLOQUEO DE PALABRAS Y ENLACES
+   ========================================================= */
+
+/*
+ * Estructura guardada en config.json:
+ *
+ * automod: {
+ *
+ *     links: false,
+ *
+ *     words: [],
+ *
+ *     rankUnlockLinks: [],
+ *
+ *     rankUnlockWords: []
+ *
+ * }
+ */
+
+/* ==========================
+   CONFIGURACIÓN AUTOMOD
+========================== */
+
+function getAutoModConfig(guildId) {
+
+    const guildConfig = getGuildConfig(guildId);
+
+    guildConfig.automod ??= {};
+
+    guildConfig.automod.links ??= false;
+
+    guildConfig.automod.words ??= [];
+
+    guildConfig.automod.rankUnlockLinks ??= [];
+
+    guildConfig.automod.rankUnlockWords ??= [];
+
+    return guildConfig.automod;
+
+}
+
+
+/* ==========================
+   NORMALIZAR TEXTO
+========================== */
+
+function normalizeAutoModText(text) {
+
+    return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim();
+
+}
+
+
+/* ==========================
+   DETECTAR ENLACES
+========================== */
+
+function containsLink(text) {
+
+    if (!text)
+        return false;
+
+    /*
+     * Detecta:
+     *
+     * https://ejemplo.com
+     * http://ejemplo.com
+     * www.ejemplo.com
+     * discord.gg/xxxxx
+     * discord.com/invite/xxxxx
+     */
+
+    const linkRegex =
+        /(?:https?:\/\/|www\.|discord\.gg\/|discord\.com\/invite\/)[^\s<]+/i;
+
+    return linkRegex.test(text);
+
+}
+
+
+/* ==========================
+   DETECTAR PALABRAS
+========================== */
+
+function containsBlockedWord(text, blockedWords) {
+
+    if (!text || !blockedWords?.length)
+        return null;
+
+    const normalizedText =
+        normalizeAutoModText(text);
+
+    for (const blockedWord of blockedWords) {
+
+        const word =
+            normalizeAutoModText(blockedWord);
+
+        if (!word)
+            continue;
+
+        /*
+         * Escapar caracteres especiales
+         * para poder construir la expresión.
+         */
+
+        const escaped =
+            word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        /*
+         * Detecta la palabra incluso cuando
+         * aparece rodeada de puntuación.
+         */
+
+        const regex =
+            new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, "i");
+
+        if (regex.test(normalizedText)) {
+
+            return blockedWord;
+
+        }
+
+    }
+
+    return null;
+
+}
+
+
+/* ==========================
+   COMPROBAR RANGO PERMITIDO
+========================== */
+
+function hasAutoModRankUnlock(member, roleIds) {
+
+    if (!member || !roleIds?.length)
+        return false;
+
+    return roleIds.some(roleId =>
+        member.roles.cache.has(roleId)
+    );
+
+}
+
+
+/* =========================================================
+   🛡️ EVENTO AUTOMOD
+   ========================================================= */
+
+export async function handleAutoModMessage(message) {
+
+    try {
+
+        /*
+         * Ignorar mensajes que no pertenezcan
+         * a un servidor.
+         */
+
+        if (!message.guild)
+            return;
+
+
+        /*
+         * Ignorar bots.
+         */
+
+        if (message.author.bot)
+            return;
+
+
+        const automod =
+            getAutoModConfig(message.guild.id);
+
+        const member =
+            message.member;
+
+
+        /*
+         * Administradores quedan exentos.
+         */
+
+        if (
+            member?.permissions.has(
+                PermissionsBitField.Flags.Administrator
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /* =================================================
+           🔗 BLOQUEO DE ENLACES
+        ================================================= */
+
+        if (automod.links) {
+
+            const unlocked =
+                hasAutoModRankUnlock(
+                    member,
+                    automod.rankUnlockLinks
+                );
+
+            /*
+             * Si tiene un rango permitido,
+             * puede mandar enlaces.
+             */
+
+            if (!unlocked && containsLink(message.content)) {
+
+                try {
+
+                    await message.delete(
+                        "AutoMod: enlace bloqueado"
+                    );
+
+                    console.log(
+                        `🔗 AutoMod bloqueó un enlace de ${message.author.tag} en ${message.guild.name}`
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ No se pudo eliminar el enlace:",
+                        error
+                    );
+
+                }
+
+                return;
+
+            }
+
+        }
+
+
+        /* =================================================
+           🤬 BLOQUEO DE PALABRAS
+        ================================================= */
+
+        if (automod.words.length > 0) {
+
+            const unlocked =
+                hasAutoModRankUnlock(
+                    member,
+                    automod.rankUnlockWords
+                );
+
+            if (!unlocked) {
+
+                const blockedWord =
+                    containsBlockedWord(
+                        message.content,
+                        automod.words
+                    );
+
+                if (blockedWord) {
+
+                    try {
+
+                        await message.delete(
+                            "AutoMod: palabra bloqueada"
+                        );
+
+                        console.log(
+                            `🤬 AutoMod bloqueó "${blockedWord}" de ${message.author.tag} en ${message.guild.name}`
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            "❌ No se pudo eliminar la palabra bloqueada:",
+                            error
+                        );
+
+                    }
+
+                    return;
+
+                }
+
+            }
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error en AutoMod:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   ⚙️ COMANDOS AUTOMOD
+   ========================================================= */
+
+async function handleAutoModCommands(interaction) {
+
+    try {
+
+        if (
+            !interaction.memberPermissions.has(
+                PermissionsBitField.Flags.Administrator
+            )
+        ) {
+
+            return placeholder(
+                interaction,
+                "❌ Necesitas el permiso **Administrador** para configurar el AutoMod."
+            );
+
+        }
+
+
+        const automod =
+            getAutoModConfig(
+                interaction.guild.id
+            );
+
+
+        const command =
+            interaction.commandName;
+
+        const subcommand =
+            interaction.options.getSubcommand();
+
+
+        /* =================================================
+           /BLOCK
+        ================================================= */
+
+        if (command === "block") {
+
+
+            /* ==========================
+               /BLOCK LINK
+            ========================== */
+
+            if (subcommand === "link") {
+
+                automod.links = true;
+
+                saveConfig();
+
+                return interaction.reply({
+                    content:
+                        "🔗 **Bloqueo de enlaces activado.**\n\nTodos los usuarios quedarán bloqueados, excepto administradores y los rangos configurados con `/rankunlocklink`.",
+                    ephemeral: true
+                });
+
+            }
+
+
+            /* ==========================
+               /BLOCK WORD
+            ========================== */
+
+            if (subcommand === "word") {
+
+                const word =
+                    interaction.options
+                        .getString("palabra")
+                        ?.trim();
+
+                if (!word) {
+
+                    return placeholder(
+                        interaction,
+                        "❌ Debes indicar una palabra."
+                    );
+
+                }
+
+
+                const normalized =
+                    normalizeAutoModText(word);
+
+                const exists =
+                    automod.words.some(
+                        existing =>
+                            normalizeAutoModText(existing) === normalized
+                    );
+
+
+                if (exists) {
+
+                    return placeholder(
+                        interaction,
+                        `⚠️ La palabra **${word}** ya está bloqueada.`
+                    );
+
+                }
+
+
+                automod.words.push(word);
+
+                saveConfig();
+
+                return interaction.reply({
+                    content:
+                        `🤬 Palabra **${word}** bloqueada correctamente.`,
+                    ephemeral: true
+                });
+
+            }
+
+        }
+
+
+        /* =================================================
+           /UNLOCK
+        ================================================= */
+
+        if (command === "unlock") {
+
+
+            /* ==========================
+               /UNLOCK LINK
+            ========================== */
+
+            if (subcommand === "link") {
+
+                automod.links = false;
+
+                saveConfig();
+
+                return interaction.reply({
+                    content:
+                        "🔓 **Bloqueo de enlaces desactivado.** Los enlaces vuelven a estar permitidos.",
+                    ephemeral: true
+                });
+
+            }
+
+
+            /* ==========================
+               /UNLOCK WORD
+            ========================== */
+
+            if (subcommand === "word") {
+
+                const word =
+                    interaction.options
+                        .getString("palabra")
+                        ?.trim();
+
+                if (!word) {
+
+                    return placeholder(
+                        interaction,
+                        "❌ Debes indicar una palabra."
+                    );
+
+                }
+
+
+                const normalized =
+                    normalizeAutoModText(word);
+
+
+                const index =
+                    automod.words.findIndex(
+                        existing =>
+                            normalizeAutoModText(existing) === normalized
+                    );
+
+
+                if (index === -1) {
+
+                    return placeholder(
+                        interaction,
+                        `⚠️ La palabra **${word}** no estaba bloqueada.`
+                    );
+
+                }
+
+
+                const removed =
+                    automod.words.splice(
+                        index,
+                        1
+                    )[0];
+
+
+                saveConfig();
+
+                return interaction.reply({
+                    content:
+                        `🔓 Palabra **${removed}** desbloqueada correctamente.`,
+                    ephemeral: true
+                });
+
+            }
+
+        }
+
+
+        /* =================================================
+           /RANKUNLOCKLINK
+        ================================================= */
+
+        if (command === "rankunlocklink") {
+
+            const role =
+                interaction.options.getRole("rol");
+
+
+            if (!role) {
+
+                return placeholder(
+                    interaction,
+                    "❌ Debes seleccionar un rango."
+                );
+
+            }
+
+
+            if (
+                automod.rankUnlockLinks
+                    .includes(role.id)
+            ) {
+
+                return placeholder(
+                    interaction,
+                    `⚠️ El rango ${role} ya puede enviar enlaces.`
+                );
+
+            }
+
+
+            automod.rankUnlockLinks.push(
+                role.id
+            );
+
+            saveConfig();
+
+
+            return interaction.reply({
+                content:
+                    `🔗 El rango ${role} ahora puede enviar enlaces aunque estén bloqueados.`,
+                ephemeral: true
+            });
+
+        }
+
+
+        /* =================================================
+           /RANKUNLOCKWORD
+        ================================================= */
+
+        if (command === "rankunlockword") {
+
+            const role =
+                interaction.options.getRole("rol");
+
+
+            if (!role) {
+
+                return placeholder(
+                    interaction,
+                    "❌ Debes seleccionar un rango."
+                );
+
+            }
+
+
+            if (
+                automod.rankUnlockWords
+                    .includes(role.id)
+            ) {
+
+                return placeholder(
+                    interaction,
+                    `⚠️ El rango ${role} ya puede utilizar palabras bloqueadas.`
+                );
+
+            }
+
+
+            automod.rankUnlockWords.push(
+                role.id
+            );
+
+            saveConfig();
+
+
+            return interaction.reply({
+                content:
+                    `🤬 El rango ${role} ahora puede utilizar palabras bloqueadas.`,
+                ephemeral: true
+            });
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error en comandos AutoMod:",
+            error
+        );
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            return interaction.reply({
+                content:
+                    "❌ Ocurrió un error configurando el AutoMod.",
+                ephemeral: true
+            });
+
+        }
+
+    }
+
+}
+
 /* ==========================
         SetBoost
 ========================== */
@@ -2155,7 +2786,20 @@ async function handleSlashCommands(interaction, client) {
 
             case "ticket":
                 return await cmdTicket(interaction);
+                            
+/* =================================================
+   🛡️ AUTOMOD
+================================================= */
 
+case "block":
+case "unlock":
+case "rankunlocklink":
+case "rankunlockword":
+
+    return await handleAutoModCommands(
+        interaction
+    );
+            
             default:
 
                 return interaction.reply({
