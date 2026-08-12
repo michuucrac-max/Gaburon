@@ -61,7 +61,6 @@ const cmdData = JSON.parse(fs.readFileSync("./cmd.json", "utf8"));
 const commands = [];
 for (const cmd of cmdData) {
   const builder = new SlashCommandBuilder().setName(cmd.name).setDescription(cmd.description);
-  if (cmd.options) {
 
 /* =========================================================
    🧩 OPCIONES Y SUBCOMANDOS
