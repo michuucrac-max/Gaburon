@@ -59,253 +59,265 @@ setInterval(() => { http.get(`http://localhost:${PORT}/ping`).on("error", () => 
 ========================== */
 const cmdData = JSON.parse(fs.readFileSync("./cmd.json", "utf8"));
 const commands = [];
+
 for (const cmd of cmdData) {
-  const builder = new SlashCommandBuilder().setName(cmd.name).setDescription(cmd.description);
+  const builder = new SlashCommandBuilder()
+    .setName(cmd.name)
+    .setDescription(cmd.description);
 
-/* =========================================================
-   🧩 OPCIONES Y SUBCOMANDOS
-   ========================================================= */
+  /* =========================================================
+     🧩 OPCIONES Y SUBCOMANDOS
+     ========================================================= */
 
-if (cmd.subcommands) {
+  if (cmd.subcommands) {
+
     for (const subcommand of cmd.subcommands) {
 
-        builder.addSubcommand(sub => {
+      builder.addSubcommand(sub => {
 
-            sub
-                .setName(subcommand.name)
-                .setDescription(subcommand.description);
+        sub
+          .setName(subcommand.name)
+          .setDescription(subcommand.description);
 
-            if (subcommand.options) {
+        if (subcommand.options) {
 
-                for (const option of subcommand.options) {
+          for (const option of subcommand.options) {
 
-                    switch (option.type) {
+            switch (option.type) {
 
-                        case "string":
+              case "string":
 
-                            sub.addStringOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addStringOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "user":
+              case "user":
 
-                            sub.addUserOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addUserOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "channel":
+              case "channel":
 
-                            sub.addChannelOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addChannelOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "boolean":
+              case "boolean":
 
-                            sub.addBooleanOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addBooleanOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "integer":
+              case "integer":
 
-                            sub.addIntegerOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addIntegerOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "number":
+              case "number":
 
-                            sub.addNumberOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addNumberOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "role":
+              case "role":
 
-                            sub.addRoleOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addRoleOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "mentionable":
+              case "mentionable":
 
-                            sub.addMentionableOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addMentionableOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
+                break;
 
-                        case "attachment":
+              case "attachment":
 
-                            sub.addAttachmentOption(o =>
-                                o
-                                    .setName(option.name)
-                                    .setDescription(option.description)
-                                    .setRequired(option.required ?? false)
-                            );
+                sub.addAttachmentOption(o =>
+                  o
+                    .setName(option.name)
+                    .setDescription(option.description)
+                    .setRequired(option.required ?? false)
+                );
 
-                            break;
-
-                    }
-
-                }
+                break;
 
             }
 
-            return sub;
-
-        });
-
-    }
-
-} else if (cmd.options) {
-
-    for (const option of cmd.options) {
-
-        switch (option.type) {
-
-            case "string":
-
-                builder.addStringOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "user":
-
-                builder.addUserOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "channel":
-
-                builder.addChannelOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "boolean":
-
-                builder.addBooleanOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "integer":
-
-                builder.addIntegerOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "number":
-
-                builder.addNumberOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "role":
-
-                builder.addRoleOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "mentionable":
-
-                builder.addMentionableOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
-
-            case "attachment":
-
-                builder.addAttachmentOption(o =>
-                    o
-                        .setName(option.name)
-                        .setDescription(option.description)
-                        .setRequired(option.required ?? false)
-                );
-
-                break;
+          }
 
         }
 
+        return sub;
+
+      });
+
     }
 
+  } else if (cmd.options) {
+
+    for (const option of cmd.options) {
+
+      switch (option.type) {
+
+        case "string":
+
+          builder.addStringOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "user":
+
+          builder.addUserOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "channel":
+
+          builder.addChannelOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "boolean":
+
+          builder.addBooleanOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "integer":
+
+          builder.addIntegerOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "number":
+
+          builder.addNumberOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "role":
+
+          builder.addRoleOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "mentionable":
+
+          builder.addMentionableOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+        case "attachment":
+
+          builder.addAttachmentOption(o =>
+            o
+              .setName(option.name)
+              .setDescription(option.description)
+              .setRequired(option.required ?? false)
+          );
+
+          break;
+
+      }
+
+    }
+
+  }
+
+  commands.push(
+    builder.toJSON()
+  );
+
 }
-            
+
 /* ==========================
             READY
 ========================== */
+const rest = new REST({ version: "10" }).setToken(TOKEN);
+
 client.once(Events.ClientReady, async () => {
   console.clear();
   console.log("========================================");
@@ -351,6 +363,7 @@ client.on(Events.InteractionCreate, async interaction => {
 client.on("guildMemberAdd", member => {
   updateCounters(member.guild).catch(err => console.error("guildMemberAdd updateCounters:", err));
 });
+
 client.on("guildMemberRemove", member => {
   updateCounters(member.guild).catch(err => console.error("guildMemberRemove updateCounters:", err));
 });
@@ -388,7 +401,7 @@ client.on(Events.MessageCreate, async message => {
     }
 
 });
-            
+
 /* ==========================
    EVENTOS DE MIEMBROS
 ========================== */
@@ -438,6 +451,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     if (oldMember?.partial) {
       try { oldMember = await oldMember.fetch(); } catch (e) { /* ignore */ }
     }
+
     if (newMember?.partial) {
       try { newMember = await newMember.fetch(); } catch (e) { /* ignore */ }
     }
@@ -460,4 +474,3 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 client.login(TOKEN)
   .then(() => console.log("🔑 Login realizado correctamente."))
   .catch(err => console.error("❌ Error iniciando sesión:", err));
-            
