@@ -30,7 +30,7 @@ import {
 ========================== */
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 /* ==========================
            CLIENT
