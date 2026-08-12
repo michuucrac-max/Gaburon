@@ -462,3 +462,4 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 client.login(TOKEN)
   .then(() => console.log("🔑 Login realizado correctamente."))
   .catch(err => console.error("❌ Error iniciando sesión:", err));
+            
