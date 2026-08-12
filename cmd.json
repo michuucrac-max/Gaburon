@@ -208,5 +208,73 @@
         "required": false
       }
     ]
-  }
+  },
+{
+    "name": "block",
+    "description": "Bloquear enlaces o palabras",
+    "subcommands": [
+        {
+            "name": "link",
+            "description": "Bloquear todos los enlaces"
+        },
+        {
+            "name": "word",
+            "description": "Bloquear una palabra",
+            "options": [
+                {
+                    "type": "string",
+                    "name": "palabra",
+                    "description": "Palabra que quieres bloquear",
+                    "required": true
+                }
+            ]
+        }
+    ]
+},
+{
+    "name": "unlock",
+    "description": "Desbloquear enlaces o palabras",
+    "subcommands": [
+        {
+            "name": "link",
+            "description": "Desbloquear todos los enlaces"
+        },
+        {
+            "name": "word",
+            "description": "Desbloquear una palabra",
+            "options": [
+                {
+                    "type": "string",
+                    "name": "palabra",
+                    "description": "Palabra que quieres desbloquear",
+                    "required": true
+                }
+            ]
+        }
+    ]
+},
+{
+    "name": "rankunlocklink",
+    "description": "Permitir que un rango use enlaces",
+    "options": [
+        {
+            "type": "role",
+            "name": "rol",
+            "description": "Rango que podrá enviar enlaces",
+            "required": true
+        }
+    ]
+},
+{
+    "name": "rankunlockword",
+    "description": "Permitir que un rango use palabras bloqueadas",
+    "options": [
+        {
+            "type": "role",
+            "name": "rol",
+            "description": "Rango que podrá usar palabras bloqueadas",
+            "required": true
+        }
+    ]
+}
 ]
