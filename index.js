@@ -15,7 +15,15 @@ import {
   Partials
 } from "discord.js";
 
-import { executeLogic, ensureCounterChannel, config, sendWelcome, sendFarewell, handleBoost } from "./logic.js";
+import {
+    executeLogic,
+    ensureCounterChannel,
+    config,
+    sendWelcome,
+    sendFarewell,
+    handleBoost,
+    handleAutoModMessage
+} from "./logic.js";
 
 /* ==========================
            CONFIG
@@ -362,6 +370,27 @@ async function updateCounters(guild) {
   }
 }
 
+/* =========================================================
+   🛡️ AUTOMOD — MENSAJES
+========================================================= */
+
+client.on(Events.MessageCreate, async message => {
+
+    try {
+
+        await handleAutoModMessage(message);
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error procesando AutoMod:",
+            error
+        );
+
+    }
+
+});
+            
 /* ==========================
    EVENTOS DE MIEMBROS
 ========================== */
