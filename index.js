@@ -67,7 +67,6 @@ for (const cmd of cmdData) {
    ========================================================= */
 
 if (cmd.subcommands) {
-
     for (const subcommand of cmd.subcommands) {
 
         builder.addSubcommand(sub => {
