@@ -11,6 +11,10 @@
     "name": "ticket",
     "description": "Enviar o configurar el panel de tickets"
   },
+{
+  "name": "invoke",
+  "description": "Hace que Gaburon se una a tu canal de voz"
+},
   {
     "name": "infosetchannels",
     "description": "Ver la configuración de canales y cómo usar los comandos"
