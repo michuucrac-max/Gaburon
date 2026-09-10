@@ -60,6 +60,86 @@ app.listen(PORT, () => console.log(`🌐 Servidor iniciado (${PORT})`));
 setInterval(() => { http.get(`http://localhost:${PORT}/ping`).on("error", () => {}); }, 1000 * 60 * 5);
 
 /* ==========================
+      GITHUB BACKUP
+========================== */
+
+let backupRunning = false;
+
+
+async function backupGaburon() {
+
+    if (backupRunning)
+        return;
+
+
+    backupRunning = true;
+
+
+    try {
+
+        const saved =
+            await flushConfigToGitHub();
+
+
+        if (saved) {
+
+            console.log(
+                "☁️ Configuración respaldada correctamente."
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error en respaldo de GitHub:",
+            error
+        );
+
+    } finally {
+
+        backupRunning = false;
+
+    }
+
+}
+
+
+/*
+ * Primer respaldo después de
+ * que el bot tenga tiempo de iniciar.
+ */
+
+setTimeout(
+
+    async () => {
+
+        await backupGaburon();
+
+    },
+
+    30 * 1000
+
+);
+
+
+/*
+ * Comprobar cambios cada 10 minutos.
+ */
+
+setInterval(
+
+    async () => {
+
+        await backupGaburon();
+
+    },
+
+    10 * 60 * 1000
+
+);
+
+/* ==========================
         CARGAR CMD.JSON
 ========================== */
 const cmdData = JSON.parse(fs.readFileSync("./cmd.json", "utf8"));
