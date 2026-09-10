@@ -10,6 +10,11 @@ import {
 } from "@discordjs/voice";
 
 import {
+    loadConfigFromGitHub,
+    markConfigDirty
+} from "./githubStorage.js";
+
+import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -34,66 +39,151 @@ let config = {
 };
 
 // Cargar la configuración al iniciar el archivo
-loadConfig();
+await loadConfig();
 
 /* ==========================
         CONFIG.JSON
 ========================== */
 
-/**
- * Carga la configuración desde config.json.
- */
-function loadConfig() {
+async function loadConfig() {
 
-    if (!fs.existsSync(CONFIG_PATH)) {
+    /*
+     * Configuración por defecto.
+     */
 
-        saveConfig();
-        return;
+    config = {
+
+        channels: {},
+
+        counters: {}
+
+    };
+
+
+    /*
+     * Intentar cargar primero
+     * la configuración local.
+     */
+
+    if (
+        fs.existsSync(
+            CONFIG_PATH
+        )
+    ) {
+
+        try {
+
+            const data =
+                fs.readFileSync(
+
+                    CONFIG_PATH,
+
+                    "utf8"
+
+                );
+
+
+            if (data.trim()) {
+
+                config =
+                    JSON.parse(data);
+
+            }
+
+
+        } catch (err) {
+
+            console.error(
+                "⚠️ Error leyendo config.json local:",
+                err
+            );
+
+        }
 
     }
 
-    try {
 
-        const data = fs.readFileSync(CONFIG_PATH, "utf8");
+    /*
+     * Intentar recuperar la
+     * configuración desde GitHub.
+     */
 
-        config = JSON.parse(data);
+    const remote =
+        await loadConfigFromGitHub();
 
-    } catch (err) {
 
-        console.error("⚠️ config.json corrupto. Restaurando configuración...");
+    if (remote?.content) {
 
-        config = {
-            channels: {},
-            counters: {}
-        };
+        try {
 
-        saveConfig();
+            const githubConfig =
+                JSON.parse(
+                    remote.content
+                );
+
+
+            config =
+                githubConfig;
+
+
+            /*
+             * Actualizar también
+             * el archivo local.
+             */
+
+            fs.writeFileSync(
+
+                CONFIG_PATH,
+
+                JSON.stringify(
+                    config,
+                    null,
+                    4
+                ),
+
+                "utf8"
+
+            );
+
+
+            console.log(
+                "☁️ Configuración restaurada desde GitHub."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ config.json de GitHub es inválido:",
+                error
+            );
+
+        }
 
     }
 
-    // Asegurar que existan las propiedades necesarias
+
+    /*
+     * Asegurar propiedades.
+     */
+
     config.channels ??= {};
+
     config.counters ??= {};
 
-}
 
-/**
- * Guarda la configuración en config.json.
- */
-function saveConfig() {
+    /*
+     * Si no existe localmente,
+     * crearlo.
+     */
 
-    try {
+    if (
+        !fs.existsSync(
+            CONFIG_PATH
+        )
+    ) {
 
-        fs.writeFileSync(
-            CONFIG_PATH,
-            JSON.stringify(config, null, 4),
-            "utf8"
-        );
-
-    } catch (err) {
-
-        console.error("❌ Error al guardar config.json:");
-        console.error(err);
+        saveConfig();
 
     }
 
