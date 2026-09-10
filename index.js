@@ -25,6 +25,10 @@ import {
     handleAutoModMessage
 } from "./logic.js";
 
+import {
+    flushConfigToGitHub
+} from "./githubStorage.js";
+
 /* ==========================
            CONFIG
 ========================== */
