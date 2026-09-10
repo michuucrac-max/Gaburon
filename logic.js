@@ -5,6 +5,11 @@
 import fs from "fs";
 
 import {
+    joinVoiceChannel,
+    getVoiceConnection
+} from "@discordjs/voice";
+
+import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -1226,6 +1231,67 @@ async function cmdPing(interaction) {
 
                 ephemeral: true
 
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
+          /INVOKE
+========================== */
+
+async function cmdInvoke(interaction) {
+
+    try {
+
+        const member = interaction.member;
+
+        if (!member?.voice?.channel) {
+
+            return interaction.reply({
+                content: "❌ Debes estar conectado a un canal de voz para usar `/Invoke`.",
+                ephemeral: true
+            });
+
+        }
+
+        const voiceChannel = member.voice.channel;
+
+        const existingConnection =
+            getVoiceConnection(interaction.guild.id);
+
+        if (existingConnection) {
+
+            existingConnection.destroy();
+
+        }
+
+        joinVoiceChannel({
+
+            channelId: voiceChannel.id,
+            guildId: interaction.guild.id,
+            adapterCreator: interaction.guild.voiceAdapterCreator,
+            selfDeaf: true,
+            selfMute: false
+
+        });
+
+        return interaction.reply({
+            content: `🔊 **Invoke realizado.**\nGaburon se ha conectado a ${voiceChannel}.`
+        });
+
+    } catch (error) {
+
+        console.error("❌ Error en /Invoke:", error);
+
+        if (!interaction.replied && !interaction.deferred) {
+
+            return interaction.reply({
+                content: "❌ No pude conectarme al canal de voz.",
+                ephemeral: true
             });
 
         }
@@ -2749,6 +2815,9 @@ async function handleSlashCommands(interaction, client) {
 
             case "help":
                 return await cmdHelp(interaction);
+
+            case "invoke":
+                return await cmdInvoke(interaction);
 
             /* ==========================
                 Bienvenidas
