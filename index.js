@@ -554,6 +554,60 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 });
 
 /* ==========================
+      CIERRE SEGURO
+========================== */
+
+async function gracefulShutdown(signal) {
+
+    console.log(
+        `🛑 Gaburon recibió ${signal}.`
+    );
+
+
+    try {
+
+        console.log(
+            "☁️ Guardando configuración..."
+        );
+
+
+        await flushConfigToGitHub();
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Error guardando configuración:",
+            error
+        );
+
+    }
+
+
+    try {
+
+        client.destroy();
+
+    } catch {}
+
+
+    process.exit(0);
+
+}
+
+
+process.on(
+    "SIGTERM",
+    () => gracefulShutdown("SIGTERM")
+);
+
+
+process.on(
+    "SIGINT",
+    () => gracefulShutdown("SIGINT")
+);
+
+/* ==========================
             LOGIN
 ========================== */
 client.login(TOKEN)
