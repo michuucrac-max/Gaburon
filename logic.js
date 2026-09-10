@@ -198,28 +198,27 @@ function saveConfig() {
     try {
 
         fs.writeFileSync(
-
             CONFIG_PATH,
-
             JSON.stringify(
                 config,
                 null,
                 4
             ),
-
             "utf8"
-
         );
 
         markConfigDirty();
 
+        console.log(
+            "💾 Config marcada para respaldo en GitHub."
+        );
+
     } catch (err) {
 
         console.error(
-            "❌ Error al guardar config.json:"
+            "❌ Error al guardar config.json:",
+            err
         );
-
-        console.error(err);
 
     }
 
