@@ -190,6 +190,42 @@ async function loadConfig() {
 }
 
 /* ==========================
+        SAVE CONFIG
+========================== */
+
+function saveConfig() {
+
+    try {
+
+        fs.writeFileSync(
+
+            CONFIG_PATH,
+
+            JSON.stringify(
+                config,
+                null,
+                4
+            ),
+
+            "utf8"
+
+        );
+
+        markConfigDirty();
+
+    } catch (err) {
+
+        console.error(
+            "❌ Error al guardar config.json:"
+        );
+
+        console.error(err);
+
+    }
+
+}
+
+/* ==========================
        FUNCIONES AUXILIARES
 ========================== */
 
