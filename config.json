@@ -1,5 +1,14 @@
 {
-    "channels": {},
+    "channels": {
+        "1525928967217877164": {
+            "automod": {
+                "links": false,
+                "words": [],
+                "rankUnlockLinks": [],
+                "rankUnlockWords": []
+            }
+        }
+    },
     "counters": {
         "1515844186685837595": {
             "humans": "1531762952917483645",
