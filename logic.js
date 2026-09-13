@@ -3163,14 +3163,10 @@ async function handleSlashCommands(interaction, client) {
             ========================== */
 
             case "createhuman":
-                return await cmdCreateHuman(
-        interaction
-    );
+                return await cmdCreateHuman(interaction);
 
             case "createbot":
-                return await cmdCreateBot(
-        interaction
-    );
+                return await cmdCreateBot(interaction);
                             
             /* ==========================
                 Bienvenidas
