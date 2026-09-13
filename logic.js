@@ -655,13 +655,15 @@ export async function handleBoost(oldMember, newMember) {
 ========================== */
 
 /* ==========================
-      Actualizar Contador
+        CONTADOR DE CANAL
 ========================== */
 
-/**
- * Crea o actualiza un contador.
- */
-async function ensureCounterChannel(guild, key, label, count) {
+async function ensureCounterChannel(
+    guild,
+    key,
+    label,
+    count
+) {
 
     try {
 
@@ -669,92 +671,113 @@ async function ensureCounterChannel(guild, key, label, count) {
 
         let channel = null;
 
-        const savedId = config.counters[guild.id][key];
+        const savedId =
+            config.counters[guild.id][key];
 
-        // Buscar por ID guardado
+
+        /* ==========================
+              BUSCAR POR ID
+        ========================== */
+
         if (savedId) {
 
-            channel = await guild.channels.fetch(savedId).catch(() => null);
+            channel =
+                await guild.channels
+                    .fetch(savedId)
+                    .catch(() => null);
 
         }
 
-        // Buscar la categoría Status
-        let category = guild.channels.cache.find(channel =>
-            channel.type === ChannelType.GuildCategory &&
-            channel.name === "Status"
-        );
 
-        // Crear categoría si no existe
-        if (!category) {
+        /* ==========================
+              BUSCAR POR NOMBRE
+        ========================== */
 
-            category = await guild.channels.create({
-
-                name: "Status",
-
-                type: ChannelType.GuildCategory
-
-            });
-
-            log("Categoría 'Status' creada.");
-
-        }
-
-        // Buscar el contador si no se encontró por ID
         if (!channel) {
 
-            channel = guild.channels.cache.find(c =>
-                c.parentId === category.id &&
-                c.type === ChannelType.GuildVoice &&
-                c.name.startsWith(label)
+            channel =
+                guild.channels.cache.find(
+                    c =>
+                        c.type === ChannelType.GuildVoice &&
+                        c.name.startsWith(label)
+                );
+
+        }
+
+
+        /* ==========================
+              CREAR CANAL
+        ========================== */
+
+        if (!channel) {
+
+            channel =
+                await guild.channels.create({
+
+                    name:
+                        `${label}: ${count}`,
+
+                    type:
+                        ChannelType.GuildVoice,
+
+                    permissionOverwrites: [
+
+                        {
+                            id:
+                                guild.roles.everyone.id,
+
+                            deny: [
+
+                                PermissionsBitField
+                                    .Flags
+                                    .Connect
+
+                            ]
+
+                        }
+
+                    ]
+
+                });
+
+            log(
+                `Contador "${label}" creado.`
             );
 
         }
 
-        // Crear contador
-        if (!channel) {
 
-            channel = await guild.channels.create({
+        /* ==========================
+              GUARDAR ID
+        ========================== */
 
-                name: `${label}: ${count}`,
-
-                type: ChannelType.GuildVoice,
-
-                parent: category.id,
-
-                permissionOverwrites: [
-
-                    {
-                        id: guild.roles.everyone.id,
-
-                        deny: [
-                            PermissionsBitField.Flags.Connect
-                        ]
-                    }
-
-                ]
-
-            });
-
-            log(`Contador "${label}" creado.`);
-
-        }
-
-        // Guardar ID
-        config.counters[guild.id][key] = channel.id;
+        config.counters[guild.id][key] =
+            channel.id;
 
         saveConfig();
 
-        const newName = `${label}: ${count}`;
+
+        /* ==========================
+              ACTUALIZAR NOMBRE
+        ========================== */
+
+        const newName =
+            `${label}: ${count}`;
 
         if (channel.name !== newName) {
 
-            await channel.setName(newName);
+            await channel.setName(
+                newName
+            );
 
         }
 
     } catch (err) {
 
-        console.error(`Error actualizando contador "${key}":`);
+        console.error(
+            `Error actualizando contador "${key}":`
+        );
+
         console.error(err);
 
     }
@@ -762,34 +785,225 @@ async function ensureCounterChannel(guild, key, label, count) {
 }
 
 /* ==========================
-    Actualizar Contadores
+      ACTUALIZAR CONTADORES
 ========================== */
 
-/**
- * Actualiza todos los contadores del servidor.
- */
-export async function updateCounters(guild) {
+async function updateCounters(guild) {
 
-    await ensureCounterChannel(
-        guild,
-        "members",
-        "👥 exploradores",
-        guild.memberCount
-    );
+    try {
 
-    await ensureCounterChannel(
-        guild,
-        "bots",
-        "🤖 automatas",
-        guild.members.cache.filter(member => member.user.bot).size
-    );
+        const guildCounters =
+            config.counters?.[guild.id];
 
-    await ensureCounterChannel(
-        guild,
-        "humans",
-        "🧑 Humanos",
-        guild.members.cache.filter(member => !member.user.bot).size
-    );
+        // Este servidor nunca configuró contadores.
+        // No crear absolutamente nada.
+        if (!guildCounters) {
+            return;
+        }
+
+
+        const members =
+            guild.memberCount;
+
+        const bots =
+            guild.members.cache.filter(
+                member => member.user.bot
+            ).size;
+
+        const humans =
+            guild.members.cache.filter(
+                member => !member.user.bot
+            ).size;
+
+
+        /* ==========================
+              MIEMBROS
+        ========================== */
+
+        if (guildCounters.members) {
+
+            await ensureCounterChannel(
+                guild,
+                "members",
+                "👥 exploradores",
+                members
+            );
+
+        }
+
+
+        /* ==========================
+                 BOTS
+        ========================== */
+
+        if (guildCounters.bots) {
+
+            await ensureCounterChannel(
+                guild,
+                "bots",
+                "🤖 automatas",
+                bots
+            );
+
+        }
+
+
+        /* ==========================
+                HUMANOS
+        ========================== */
+
+        if (guildCounters.humans) {
+
+            await ensureCounterChannel(
+                guild,
+                "humans",
+                "🧑 Humanos",
+                humans
+            );
+
+        }
+
+    } catch (err) {
+
+        console.error(
+            `❌ Error actualizando contadores de ${guild.name}:`,
+            err
+        );
+
+    }
+
+}
+
+/* ==========================
+        CREATE HUMAN
+========================== */
+
+export async function createHumanCounter(
+    interaction
+) {
+
+    try {
+
+        const guild =
+            interaction.guild;
+
+        config.counters[guild.id] ??= {};
+
+        const count =
+            guild.members.cache.filter(
+                member =>
+                    !member.user.bot
+            ).size;
+
+        const channel =
+            await ensureCounterChannel(
+                guild,
+                "humans",
+                "🧑 Humanos",
+                count
+            );
+
+        await interaction.reply({
+
+            content:
+                `✅ Canal de humanos creado/configurado: ${channel}`,
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error(
+            "Error en /createhuman:"
+        );
+
+        console.error(err);
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+
+                content:
+                    "❌ No se pudo crear el canal de humanos.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+
+/* ==========================
+        CREATE BOT
+========================== */
+
+export async function createBotCounter(
+    interaction
+) {
+
+    try {
+
+        const guild =
+            interaction.guild;
+
+        config.counters[guild.id] ??= {};
+
+        const count =
+            guild.members.cache.filter(
+                member =>
+                    member.user.bot
+            ).size;
+
+        const channel =
+            await ensureCounterChannel(
+                guild,
+                "bots",
+                "🤖 automatas",
+                count
+            );
+
+        await interaction.reply({
+
+            content:
+                `✅ Canal de bots creado/configurado: ${channel}`,
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error(
+            "Error en /createbot:"
+        );
+
+        console.error(err);
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            await interaction.reply({
+
+                content:
+                    "❌ No se pudo crear el canal de bots.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
 
 }
 
@@ -2944,6 +3158,20 @@ async function handleSlashCommands(interaction, client) {
             case "invoke":
                 return await cmdInvoke(interaction);
 
+            /* ==========================
+            CONTADORES
+            ========================== */
+
+            case "createhuman":
+                return await cmdCreateHuman(
+        interaction
+    );
+
+            case "createbot":
+                return await cmdCreateBot(
+        interaction
+    );
+                            
             /* ==========================
                 Bienvenidas
             ========================== */
