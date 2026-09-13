@@ -1726,6 +1726,128 @@ async function cmdHelp(interaction) {
 ========================== */
 
 /* ==========================
+      /INFOSETCHANNELS
+========================== */
+
+/**
+ * Explica cómo utilizar
+ * los comandos /set.
+ */
+async function cmdInfoSetChannels(interaction) {
+
+    try {
+
+        const embed = new EmbedBuilder()
+
+            .setColor(0x5865F2)
+
+            .setTitle("⚙️ Configuración de canales | Gaburon")
+
+            .setDescription(
+                [
+                    "Aquí encontrarás cómo configurar los canales y mensajes de Gaburon.",
+                    "",
+                    "**📢 ANUNCIOS**",
+                    "`/setchannelanuncios canal:#anuncios`",
+                    "Configura el canal donde Gaburon enviará los anuncios.",
+                    "",
+                    "**⚠️ CASTIGOS**",
+                    "`/setchannelcastigos canal:#castigos`",
+                    "Configura el canal destinado a los castigos.",
+                    "",
+                    "**🤝 ALIANZAS**",
+                    "`/setchannelalianzas canal:#alianzas`",
+                    "Configura el canal destinado a las alianzas.",
+                    "",
+                    "**👋 BIENVENIDAS**",
+                    "`/setchannelbienvenidas canal:#bienvenidas`",
+                    "Configura el canal donde se enviarán las bienvenidas.",
+                    "",
+                    "`/setwelcome`",
+                    "Configura el mensaje y, opcionalmente, el banner de bienvenida.",
+                    "",
+                    "**Ejemplo:**",
+                    "`/setwelcome mensaje:¡Bienvenido {user} a {server}! banner:https://ejemplo.com/banner.png`",
+                    "",
+                    "**🚪 DESPEDIDAS**",
+                    "`/setchanneldespedidas canal:#despedidas`",
+                    "Configura el canal donde se enviarán las despedidas.",
+                    "",
+                    "`/setfarewell`",
+                    "Configura el mensaje y, opcionalmente, el banner de despedida.",
+                    "",
+                    "**Ejemplo:**",
+                    "`/setfarewell mensaje:¡Hasta luego {username}! banner:https://ejemplo.com/farewell.png`",
+                    "",
+                    "**🚀 BOOST**",
+                    "`/setchannelboost canal:#boost`",
+                    "Configura el canal donde se enviarán los mensajes de boost.",
+                    "",
+                    "`/setboost`",
+                    "Configura el mensaje y, opcionalmente, el banner de boost.",
+                    "",
+                    "**Ejemplo:**",
+                    "`/setboost mensaje:¡Gracias {user} por impulsar {server}! banner:https://ejemplo.com/boost.png`",
+                    "",
+                    "**📝 PLACEHOLDERS**",
+                    "`{user}` → Menciona al usuario.",
+                    "`{username}` → Nombre de usuario.",
+                    "`{server}` → Nombre del servidor.",
+                    "",
+                    "**💡 Ejemplo de mensaje:**",
+                    "`¡Hola {username}! Bienvenido a {server}, {user}!`",
+                    "",
+                    "💡 El banner es opcional. Puedes dejarlo vacío si no quieres utilizar uno."
+                ].join("\n")
+            )
+
+            .setFooter({
+                text: "Gaburon • Configuración"
+            })
+
+            .setTimestamp();
+
+
+        return interaction.reply({
+
+            embeds: [
+                embed
+            ],
+
+            ephemeral: true
+
+        });
+
+    } catch (err) {
+
+        console.error(
+            "Error en cmdInfoSetChannels:"
+        );
+
+        console.error(err);
+
+
+        if (
+            !interaction.replied &&
+            !interaction.deferred
+        ) {
+
+            return interaction.reply({
+
+                content:
+                    "❌ Ocurrió un error al mostrar la información de configuración.",
+
+                ephemeral: true
+
+            });
+
+        }
+
+    }
+
+}
+
+/* ==========================
    SetChannelBienvenidas
 ========================== */
 
@@ -3157,6 +3279,9 @@ async function handleSlashCommands(interaction, client) {
 
             case "invoke":
                 return await cmdInvoke(interaction);
+
+            case "infosetchannels":
+                return await cmdInfoSetChannels(interaction);
 
             /* ==========================
             CONTADORES
