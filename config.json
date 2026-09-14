@@ -7,6 +7,14 @@
                 "rankUnlockLinks": [],
                 "rankUnlockWords": []
             }
+        },
+        "1541829254403199046": {
+            "automod": {
+                "links": false,
+                "words": [],
+                "rankUnlockLinks": [],
+                "rankUnlockWords": []
+            }
         }
     },
     "counters": {
